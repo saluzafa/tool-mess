@@ -1,443 +1,689 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>OpenAI GPT Token Price Calculator</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <title>OpenAI Token Price Calculator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- Tailwind v4 Play CDN (dev use) -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-
-    <!-- Optional: small custom tweaks -->
-    <style type="text/tailwindcss">
-      @theme {
-        --color-bg: #020617; /* slate-950 */
+  <!-- Tailwind v4-compatible CDN -->
+  <script>
+    // Tailwind config: enable class-based dark mode
+    window.tailwind = {
+      config: {
+        darkMode: 'class'
       }
-    </style>
-  </head>
-  <body class="min-h-screen bg-[var(--color-bg)] text-slate-100 antialiased">
-    <main class="flex items-center justify-center px-4 py-10">
-      <div class="w-full max-w-4xl rounded-2xl bg-slate-900/70 border border-slate-800 shadow-xl backdrop-blur-sm p-6 sm:p-8">
-        <header class="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between mb-6">
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* Small utility for smooth theme transitions */
+    html {
+      transition: color 0.2s ease, background-color 0.2s ease;
+    }
+  </style>
+</head>
+<body class="h-full bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+  <div class="min-h-full">
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-semibold tracking-tight">
+            OpenAI Token Price Calculator
+          </h1>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            Prices per <span class="font-mono">1M</span> tokens · Standard tier · Live cost estimation
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Theme toggle -->
+          <button id="themeToggle"
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs font-medium shadow-sm bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800">
+            <span id="themeIcon" aria-hidden="true">🌙</span>
+            <span id="themeLabel">Dark</span>
+          </button>
+
+          <!-- Share button -->
+          <button id="shareButton"
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-lg border border-indigo-500 px-3 py-1.5 text-xs font-semibold shadow-sm bg-indigo-600 text-white hover:bg-indigo-500">
+            <span>Share</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <!-- Info -->
+      <section class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 space-y-1">
+        <p>
+          Each row below is an “expense line” for one model call. Enter token counts and the calculator will compute
+          the cost using OpenAI’s current pricing (Standard, text tokens, per 1M tokens).
+        </p>
+        <p>
+          The full configuration (rows + values + theme) is stored in the URL so you can copy it and share with others.
+        </p>
+      </section>
+
+      <!-- Expenses Card -->
+      <section class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+        <div class="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
           <div>
-            <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">
-              OpenAI GPT Token Price Calculator
-            </h1>
-            <p class="mt-1 text-sm text-slate-400">
-              Uses <span class="font-medium text-slate-200">Standard tier</span> pricing,
-              per <span class="font-mono">1M tokens</span>, for current OpenAI text models.
+            <h2 class="text-sm sm:text-base font-semibold">
+              Expenses
+            </h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+              Add one line per distinct call pattern / workload.
             </p>
           </div>
-          <p class="text-xs text-slate-500 mt-2 sm:mt-0">
-            Currency: USD · Pricing source: OpenAI docs
-          </p>
-        </header>
 
-        <!-- Form -->
-        <section class="space-y-6">
-          <!-- Model & rates -->
-          <div class="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-            <!-- Model select -->
-            <div class="space-y-2">
-              <label for="modelSelect" class="block text-sm font-medium text-slate-200">
-                Model
-              </label>
-              <select
-                id="modelSelect"
-                class="block w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-              ></select>
-              <p class="text-xs text-slate-500">
-                Prices are per 1M tokens, Standard processing tier.
-              </p>
+          <button id="addRowButton"
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-lg border border-emerald-500 px-3 py-1.5 text-xs font-semibold shadow-sm bg-emerald-600 text-white hover:bg-emerald-500">
+            <span>+ Add row</span>
+          </button>
+        </div>
+
+        <!-- Table-ish header -->
+        <div class="hidden md:grid grid-cols-[minmax(0,2.2fr)_repeat(3,minmax(0,1.1fr))_minmax(0,1.2fr)_auto] gap-3 px-4 sm:px-6 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
+          <div>Model</div>
+          <div class="text-right">Input tokens</div>
+          <div class="text-right">Cached input</div>
+          <div class="text-right">Output tokens</div>
+          <div class="text-right">Row total</div>
+          <div class="text-right">Actions</div>
+        </div>
+
+        <!-- Rows container -->
+        <div id="expensesContainer" class="divide-y divide-slate-100 dark:divide-slate-800">
+          <!-- rows injected here -->
+        </div>
+
+        <!-- Summary -->
+        <div class="px-4 sm:px-6 py-4 sm:py-5 border-t border-slate-100 dark:border-slate-800">
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-xs sm:text-sm">
+            <div class="bg-slate-50 dark:bg-slate-900/60 rounded-xl px-3 py-2.5">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Total input cost
+              </div>
+              <div id="totalInputCost" class="mt-1 text-base font-semibold tabular-nums">
+                $0.000000
+              </div>
             </div>
 
-            <!-- Model price info -->
-            <div class="grid grid-cols-3 gap-3 text-xs sm:text-sm">
-              <div class="rounded-lg border border-slate-800 bg-slate-900/80 p-3">
-                <div class="text-slate-400">Input price</div>
-                <div id="rateInput" class="mt-1 font-mono text-slate-50 text-sm">
-                  –
-                </div>
-                <div class="mt-1 text-[0.7rem] text-slate-500">
-                  Billed on non-cached prompt tokens.
-                </div>
+            <div class="bg-slate-50 dark:bg-slate-900/60 rounded-xl px-3 py-2.5">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Total cached input cost
               </div>
-              <div class="rounded-lg border border-slate-800 bg-slate-900/80 p-3">
-                <div class="text-slate-400">Cached input price</div>
-                <div id="rateCached" class="mt-1 font-mono text-slate-50 text-sm">
-                  –
-                </div>
-                <div class="mt-1 text-[0.7rem] text-slate-500">
-                  Billed on tokens served from prompt cache.
-                </div>
+              <div id="totalCachedCost" class="mt-1 text-base font-semibold tabular-nums">
+                $0.000000
               </div>
-              <div class="rounded-lg border border-slate-800 bg-slate-900/80 p-3">
-                <div class="text-slate-400">Output price</div>
-                <div id="rateOutput" class="mt-1 font-mono text-slate-50 text-sm">
-                  –
-                </div>
-                <div class="mt-1 text-[0.7rem] text-slate-500">
-                  Billed on model’s response tokens.
-                </div>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-900/60 rounded-xl px-3 py-2.5">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Total output cost
+              </div>
+              <div id="totalOutputCost" class="mt-1 text-base font-semibold tabular-nums">
+                $0.000000
+              </div>
+            </div>
+
+            <div class="bg-indigo-50 dark:bg-indigo-950/40 rounded-xl px-3 py-2.5">
+              <div class="text-[11px] uppercase tracking-wide text-indigo-700 dark:text-indigo-200">
+                Grand total
+              </div>
+              <div id="grandTotalCost" class="mt-1 text-lg font-bold tabular-nums text-indigo-700 dark:text-indigo-200">
+                $0.000000
               </div>
             </div>
           </div>
 
-          <!-- Token inputs -->
-          <div class="grid gap-4 md:grid-cols-3">
-            <div class="space-y-2">
-              <label for="inputTokens" class="block text-sm font-medium text-slate-200">
-                Input tokens
-              </label>
-              <input
-                id="inputTokens"
-                type="number"
-                min="0"
-                inputmode="numeric"
-                class="block w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-                placeholder="e.g. 1500"
-              />
-              <p class="text-xs text-slate-500">
-                Non-cached prompt tokens sent to the model.
-              </p>
+          <!-- Token totals -->
+          <div class="mt-3 flex flex-wrap gap-3 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
+            <div>
+              <span class="font-semibold">Total tokens:</span>
+              <span id="totalTokens">0</span>
             </div>
-
-            <div class="space-y-2">
-              <label for="cachedInputTokens" class="block text-sm font-medium text-slate-200">
-                Cached input tokens
-              </label>
-              <input
-                id="cachedInputTokens"
-                type="number"
-                min="0"
-                inputmode="numeric"
-                value="0"
-                class="block w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-                placeholder="0"
-              />
-              <p class="text-xs text-slate-500">
-                Tokens served from prompt cache (if enabled).
-              </p>
+            <div>
+              <span class="font-semibold">Input:</span>
+              <span id="totalInputTokens">0</span>
             </div>
-
-            <div class="space-y-2">
-              <label for="outputTokens" class="block text-sm font-medium text-slate-200">
-                Output tokens
-              </label>
-              <input
-                id="outputTokens"
-                type="number"
-                min="0"
-                inputmode="numeric"
-                class="block w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-                placeholder="e.g. 800"
-              />
-              <p class="text-xs text-slate-500">
-                Tokens generated by the model.
-              </p>
+            <div>
+              <span class="font-semibold">Cached input:</span>
+              <span id="totalCachedTokens">0</span>
+            </div>
+            <div>
+              <span class="font-semibold">Output:</span>
+              <span id="totalOutputTokens">0</span>
             </div>
           </div>
+        </div>
+      </section>
 
-          <!-- Results -->
-          <section
-            class="mt-2 grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-start"
-          >
-            <!-- Costs -->
-            <div class="space-y-2">
-              <h2 class="text-sm font-semibold text-slate-200 uppercase tracking-wide">
-                Cost breakdown
-              </h2>
-              <div class="rounded-lg border border-slate-800 bg-slate-900/80 p-4 space-y-3 text-sm">
-                <div class="flex items-center justify-between">
-                  <span class="text-slate-300">Input cost</span>
-                  <span id="costInput" class="font-mono text-slate-50">$0.0000</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-slate-300">Cached input cost</span>
-                  <span id="costCached" class="font-mono text-slate-50">$0.0000</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-slate-300">Output cost</span>
-                  <span id="costOutput" class="font-mono text-slate-50">$0.0000</span>
-                </div>
-                <div class="border-t border-slate-800 pt-3 mt-2 flex items-center justify-between">
-                  <span class="text-slate-200 font-medium">Total cost</span>
-                  <span id="costTotal" class="font-mono text-lg text-emerald-300">
-                    $0.0000
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Token summary -->
-            <div class="space-y-2">
-              <h2 class="text-sm font-semibold text-slate-200 uppercase tracking-wide">
-                Token summary
-              </h2>
-              <div class="rounded-lg border border-slate-800 bg-slate-900/80 p-4 grid gap-3 text-sm">
-                <div class="flex items-center justify-between">
-                  <span class="text-slate-300">Input tokens</span>
-                  <span id="summaryInput" class="font-mono text-slate-50">0</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-slate-300">Cached input tokens</span>
-                  <span id="summaryCached" class="font-mono text-slate-50">0</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-slate-300">Output tokens</span>
-                  <span id="summaryOutput" class="font-mono text-slate-50">0</span>
-                </div>
-                <div class="border-t border-slate-800 pt-3 mt-2 flex items-center justify-between">
-                  <span class="text-slate-200 font-medium">Total tokens</span>
-                  <span id="summaryTotalTokens" class="font-mono text-sky-300">0</span>
-                </div>
-                <p class="mt-1 text-xs text-slate-500">
-                  Costs are computed as:
-                  <span class="font-mono">
-                    tokens × (price per 1M ÷ 1,000,000)
-                  </span>.
-                </p>
-              </div>
-            </div>
-          </section>
-        </section>
-      </div>
+      <!-- Footnote -->
+      <section class="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 space-y-1">
+        <p>
+          Prices are pulled from OpenAI’s
+          <a href="https://platform.openai.com/docs/pricing" class="underline hover:text-indigo-500" target="_blank" rel="noreferrer">
+            official pricing page
+          </a>
+          (Standard · text tokens · per 1M tokens). Always double-check in case OpenAI updates their pricing.
+        </p>
+      </section>
     </main>
+  </div>
 
-    <script>
-      // Pricing data (USD per 1M text tokens, Standard tier)
-      // Source: OpenAI Pricing docs, "Text tokens" → Standard processing tier. :contentReference[oaicite:1]{index=1}
-      const MODELS = [
-        // GPT-5 family
-        { id: "gpt-5.2", label: "gpt-5.2", inputPerM: 1.75, cachedPerM: 0.175, outputPerM: 14.0 },
-        { id: "gpt-5.1", label: "gpt-5.1", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
-        { id: "gpt-5", label: "gpt-5", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
-        { id: "gpt-5-mini", label: "gpt-5-mini", inputPerM: 0.25, cachedPerM: 0.025, outputPerM: 2.0 },
-        { id: "gpt-5-nano", label: "gpt-5-nano", inputPerM: 0.05, cachedPerM: 0.005, outputPerM: 0.4 },
-        { id: "gpt-5.2-chat-latest", label: "gpt-5.2-chat-latest", inputPerM: 1.75, cachedPerM: 0.175, outputPerM: 14.0 },
-        { id: "gpt-5.1-chat-latest", label: "gpt-5.1-chat-latest", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
-        { id: "gpt-5-chat-latest", label: "gpt-5-chat-latest", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
-        { id: "gpt-5.1-codex-max", label: "gpt-5.1-codex-max", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
-        { id: "gpt-5.1-codex", label: "gpt-5.1-codex", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
-        { id: "gpt-5-codex", label: "gpt-5-codex", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
+  <script>
+    /*************************************************
+     * Pricing data (Standard tier, text tokens, $/1M)
+     * Source: https://platform.openai.com/docs/pricing
+     *************************************************/
+    const MODEL_PRICING = {
+      // GPT-5.x family
+      "gpt-5.2":              { input: 1.75,  cached: 0.175,  output: 14.00 },
+      "gpt-5.1":              { input: 1.25,  cached: 0.125,  output: 10.00 },
+      "gpt-5":                { input: 1.25,  cached: 0.125,  output: 10.00 },
+      "gpt-5-mini":           { input: 0.25,  cached: 0.025,  output: 2.00  },
+      "gpt-5-nano":           { input: 0.05,  cached: 0.005,  output: 0.40 },
 
-        // GPT-4.1, GPT-4o family
-        { id: "gpt-4.1", label: "gpt-4.1", inputPerM: 2.0, cachedPerM: 0.5, outputPerM: 8.0 },
-        { id: "gpt-4.1-mini", label: "gpt-4.1-mini", inputPerM: 0.4, cachedPerM: 0.1, outputPerM: 1.6 },
-        { id: "gpt-4.1-nano", label: "gpt-4.1-nano", inputPerM: 0.1, cachedPerM: 0.025, outputPerM: 0.4 },
-        { id: "gpt-4o", label: "gpt-4o", inputPerM: 2.5, cachedPerM: 1.25, outputPerM: 10.0 },
-        { id: "gpt-4o-mini", label: "gpt-4o-mini", inputPerM: 0.15, cachedPerM: 0.075, outputPerM: 0.6 },
+      "gpt-5.2-chat-latest":  { input: 1.75,  cached: 0.175,  output: 14.00 },
+      "gpt-5.1-chat-latest":  { input: 1.25,  cached: 0.125,  output: 10.00 },
+      "gpt-5-chat-latest":    { input: 1.25,  cached: 0.125,  output: 10.00 },
 
-        // Realtime models (text-token pricing)
-        {
-          id: "gpt-realtime",
-          label: "gpt-realtime",
-          inputPerM: 4.0,
-          cachedPerM: 0.4,
-          outputPerM: 16.0,
-        },
-        {
-          id: "gpt-realtime-mini",
-          label: "gpt-realtime-mini",
-          inputPerM: 0.6,
-          cachedPerM: 0.06,
-          outputPerM: 2.4,
-        },
-        {
-          id: "gpt-4o-realtime-preview",
-          label: "gpt-4o-realtime-preview",
-          inputPerM: 5.0,
-          cachedPerM: 2.5,
-          outputPerM: 20.0,
-        },
-        {
-          id: "gpt-4o-mini-realtime-preview",
-          label: "gpt-4o-mini-realtime-preview",
-          inputPerM: 0.6,
-          cachedPerM: 0.3,
-          outputPerM: 2.4,
-        },
+      "gpt-5.1-codex-max":    { input: 1.25,  cached: 0.125,  output: 10.00 },
+      "gpt-5.1-codex":        { input: 1.25,  cached: 0.125,  output: 10.00 },
+      "gpt-5-codex":          { input: 1.25,  cached: 0.125,  output: 10.00 },
+      "gpt-5.1-codex-mini":   { input: 0.25,  cached: 0.025,  output: 2.00  },
 
-        // Reasoning models (o-series)
-        { id: "o1", label: "o1", inputPerM: 15.0, cachedPerM: 7.5, outputPerM: 60.0 },
-        { id: "o3", label: "o3", inputPerM: 2.0, cachedPerM: 0.5, outputPerM: 8.0 },
-        {
-          id: "o3-deep-research",
-          label: "o3-deep-research",
-          inputPerM: 10.0,
-          cachedPerM: 2.5,
-          outputPerM: 40.0,
-        },
-        { id: "o4-mini", label: "o4-mini", inputPerM: 1.1, cachedPerM: 0.275, outputPerM: 4.4 },
-        {
-          id: "o4-mini-deep-research",
-          label: "o4-mini-deep-research",
-          inputPerM: 2.0,
-          cachedPerM: 0.5,
-          outputPerM: 8.0,
-        },
-        { id: "o3-mini", label: "o3-mini", inputPerM: 1.1, cachedPerM: 0.55, outputPerM: 4.4 },
-        { id: "o1-mini", label: "o1-mini", inputPerM: 1.1, cachedPerM: 0.55, outputPerM: 4.4 },
+      "gpt-5-search-api":     { input: 1.25,  cached: 0.125,  output: 10.00 },
 
-        // Code / search-oriented
-        {
-          id: "gpt-5.1-codex-mini",
-          label: "gpt-5.1-codex-mini",
-          inputPerM: 0.25,
-          cachedPerM: 0.025,
-          outputPerM: 2.0,
-        },
-        {
-          id: "codex-mini-latest",
-          label: "codex-mini-latest",
-          inputPerM: 1.5,
-          cachedPerM: 0.375,
-          outputPerM: 6.0,
-        },
-        {
-          id: "gpt-5-search-api",
-          label: "gpt-5-search-api",
-          inputPerM: 1.25,
-          cachedPerM: 0.125,
-          outputPerM: 10.0,
-        },
+      // GPT-4.1 / 4o etc.
+      "gpt-4.1":              { input: 2.00,  cached: 0.50,   output: 8.00  },
+      "gpt-4.1-mini":         { input: 0.40,  cached: 0.10,   output: 1.60  },
+      "gpt-4.1-nano":         { input: 0.10,  cached: 0.025,  output: 0.40  },
 
-        // Image models (text-token side)
-        {
-          id: "gpt-image-1.5",
-          label: "gpt-image-1.5 (text tokens)",
-          inputPerM: 5.0,
-          cachedPerM: 1.25,
-          outputPerM: 10.0,
-        },
-        {
-          id: "chatgpt-image-latest",
-          label: "chatgpt-image-latest (text tokens)",
-          inputPerM: 5.0,
-          cachedPerM: 1.25,
-          outputPerM: 10.0,
-        },
-      ];
+      "gpt-4o":               { input: 2.50,  cached: 1.25,   output: 10.00 },
+      "gpt-4o-mini":          { input: 0.15,  cached: 0.075,  output: 0.60  },
 
-      const modelSelect = document.getElementById("modelSelect");
-      const inputTokensEl = document.getElementById("inputTokens");
-      const cachedInputTokensEl = document.getElementById("cachedInputTokens");
-      const outputTokensEl = document.getElementById("outputTokens");
+      // Realtime text tokens
+      "gpt-realtime":                 { input: 4.00,  cached: 0.40,   output: 16.00 },
+      "gpt-realtime-mini":            { input: 0.60,  cached: 0.06,   output: 2.40  },
+      "gpt-4o-realtime-preview":      { input: 5.00,  cached: 2.50,   output: 20.00 },
+      "gpt-4o-mini-realtime-preview": { input: 0.60,  cached: 0.30,   output: 2.40  },
 
-      const rateInputEl = document.getElementById("rateInput");
-      const rateCachedEl = document.getElementById("rateCached");
-      const rateOutputEl = document.getElementById("rateOutput");
+      // o-series
+      "o1":                   { input: 15.00, cached: 7.50,  output: 60.00 },
+      "o1-mini":              { input: 1.10,  cached: 0.55,  output: 4.40  },
+      "o3":                   { input: 2.00,  cached: 0.50,  output: 8.00  },
+      "o3-mini":              { input: 1.10,  cached: 0.55,  output: 4.40  },
+      "o3-deep-research":     { input: 10.00, cached: 2.50,  output: 40.00 },
+      "o4-mini":              { input: 1.10,  cached: 0.275, output: 4.40  },
+      "o4-mini-deep-research":{ input: 2.00,  cached: 0.50,  output: 8.00  },
 
-      const costInputEl = document.getElementById("costInput");
-      const costCachedEl = document.getElementById("costCached");
-      const costOutputEl = document.getElementById("costOutput");
-      const costTotalEl = document.getElementById("costTotal");
+      // Codex mini
+      "codex-mini-latest":    { input: 1.50,  cached: 0.375, output: 6.00  },
 
-      const summaryInputEl = document.getElementById("summaryInput");
-      const summaryCachedEl = document.getElementById("summaryCached");
-      const summaryOutputEl = document.getElementById("summaryOutput");
-      const summaryTotalTokensEl = document.getElementById("summaryTotalTokens");
+      // Image models – *text* tokens (not the image token section)
+      "gpt-image-1.5":        { input: 5.00,  cached: 1.25,  output: 10.00 },
+      "chatgpt-image-latest": { input: 5.00,  cached: 1.25,  output: 10.00 }
+    };
 
-      const currencyFmt = new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 4,
-        maximumFractionDigits: 6,
+    // Order models nicely (grouped-ish)
+    const MODEL_ORDER = Object.keys(MODEL_PRICING).sort((a, b) => a.localeCompare(b));
+
+    /**************************
+     * Theme handling
+     **************************/
+    const THEME_KEY = "gpt-token-calc-theme"; // 'light' | 'dark' | 'system'
+
+    function getSystemPrefersDark() {
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
+    function applyTheme(theme) {
+      const root = document.documentElement;
+      let effective = theme;
+
+      if (!theme || theme === 'system') {
+        effective = getSystemPrefersDark() ? 'dark' : 'light';
+      }
+
+      if (effective === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+
+      const themeIcon = document.getElementById('themeIcon');
+      const themeLabel = document.getElementById('themeLabel');
+      if (themeIcon && themeLabel) {
+        if (effective === 'dark') {
+          themeIcon.textContent = '🌙';
+          themeLabel.textContent = 'Dark';
+        } else {
+          themeIcon.textContent = '☀️';
+          themeLabel.textContent = 'Light';
+        }
+      }
+    }
+
+    function loadInitialTheme() {
+      const stored = localStorage.getItem(THEME_KEY);
+      if (stored) {
+        applyTheme(stored);
+      } else {
+        applyTheme('system');
+      }
+    }
+
+    function toggleTheme() {
+      // Toggle between light and dark, but treat "system" as dark/light based on system
+      const root = document.documentElement;
+      const isCurrentlyDark = root.classList.contains('dark');
+      const nextTheme = isCurrentlyDark ? 'light' : 'dark';
+      localStorage.setItem(THEME_KEY, nextTheme);
+      applyTheme(nextTheme);
+      updateURLState(); // include theme in shared URL
+    }
+
+    /**************************
+     * Row state & URL sharing
+     **************************/
+    const expensesContainer = document.getElementById('expensesContainer');
+    const addRowButton = document.getElementById('addRowButton');
+    const shareButton = document.getElementById('shareButton');
+    const themeToggle = document.getElementById('themeToggle');
+
+    const totalInputCostEl = document.getElementById('totalInputCost');
+    const totalCachedCostEl = document.getElementById('totalCachedCost');
+    const totalOutputCostEl = document.getElementById('totalOutputCost');
+    const grandTotalCostEl = document.getElementById('grandTotalCost');
+
+    const totalTokensEl = document.getElementById('totalTokens');
+    const totalInputTokensEl = document.getElementById('totalInputTokens');
+    const totalCachedTokensEl = document.getElementById('totalCachedTokens');
+    const totalOutputTokensEl = document.getElementById('totalOutputTokens');
+
+    // Internal representation of rows (array of objects with DOM refs)
+    const rows = [];
+
+    function formatMoney(num) {
+      return '$' + num.toFixed(6);
+    }
+
+    function parseNumber(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function createModelSelect() {
+      const select = document.createElement('select');
+      select.className = "block w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs sm:text-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500";
+
+      MODEL_ORDER.forEach(modelName => {
+        const pricing = MODEL_PRICING[modelName];
+        const option = document.createElement('option');
+        option.value = modelName;
+        option.textContent = `${modelName} ($${pricing.input}/$${pricing.output} per 1M in/out)`;
+        select.appendChild(option);
       });
 
-      const priceFmt = new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 4,
+      return select;
+    }
+
+    function createNumberInput(placeholder) {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.step = '1';
+      input.placeholder = placeholder || '0';
+      input.className = "block w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-right text-xs sm:text-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 tabular-nums";
+      return input;
+    }
+
+    function createExpenseRow(initial = {}) {
+      const rowWrapper = document.createElement('div');
+      rowWrapper.className = "px-4 sm:px-6 py-3";
+
+      // Responsive layout: stack on mobile, table-like on desktop
+      const inner = document.createElement('div');
+      inner.className = "grid gap-3 md:grid-cols-[minmax(0,2.2fr)_repeat(3,minmax(0,1.1fr))_minmax(0,1.2fr)_auto] md:items-center";
+
+      // Model select
+      const modelCell = document.createElement('div');
+      const modelLabelMobile = document.createElement('div');
+      modelLabelMobile.className = "md:hidden text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1";
+      modelLabelMobile.textContent = "Model";
+      modelCell.appendChild(modelLabelMobile);
+      const modelSelect = createModelSelect();
+      modelCell.appendChild(modelSelect);
+
+      // Input tokens
+      const inputCell = document.createElement('div');
+      inputCell.className = "md:text-right";
+      const inputLabelMobile = document.createElement('div');
+      inputLabelMobile.className = "md:hidden text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1";
+      inputLabelMobile.textContent = "Input tokens";
+      const inputInput = createNumberInput('0');
+      inputCell.appendChild(inputLabelMobile);
+      inputCell.appendChild(inputInput);
+
+      // Cached input
+      const cachedCell = document.createElement('div');
+      cachedCell.className = "md:text-right";
+      const cachedLabelMobile = document.createElement('div');
+      cachedLabelMobile.className = "md:hidden text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1";
+      cachedLabelMobile.textContent = "Cached input tokens";
+      const cachedInput = createNumberInput('0');
+      cachedInput.value = initial.cachedTokens || 0;
+      cachedCell.appendChild(cachedLabelMobile);
+      cachedCell.appendChild(cachedInput);
+
+      // Output tokens
+      const outputCell = document.createElement('div');
+      outputCell.className = "md:text-right";
+      const outputLabelMobile = document.createElement('div');
+      outputLabelMobile.className = "md:hidden text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1";
+      outputLabelMobile.textContent = "Output tokens";
+      const outputInput = createNumberInput('0');
+      outputCell.appendChild(outputLabelMobile);
+      outputCell.appendChild(outputInput);
+
+      // Row total
+      const totalCell = document.createElement('div');
+      totalCell.className = "flex md:block items-center justify-between gap-2";
+      const totalLabelMobile = document.createElement('div');
+      totalLabelMobile.className = "md:hidden text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400";
+      totalLabelMobile.textContent = "Row total";
+      const totalValue = document.createElement('div');
+      totalValue.className = "ml-auto md:ml-0 text-right text-xs sm:text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-100";
+      totalValue.textContent = "$0.000000";
+      totalCell.appendChild(totalLabelMobile);
+      totalCell.appendChild(totalValue);
+
+      // Remove
+      const actionsCell = document.createElement('div');
+      actionsCell.className = "flex justify-end md:justify-end";
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = "inline-flex items-center rounded-md border border-red-300 dark:border-red-700 px-2 py-1 text-[11px] sm:text-xs font-medium text-red-700 dark:text-red-200 bg-white dark:bg-slate-900 hover:bg-red-50 dark:hover:bg-red-900/40";
+      removeBtn.textContent = "Remove";
+      actionsCell.appendChild(removeBtn);
+
+      // Assemble inner grid
+      inner.appendChild(modelCell);
+      inner.appendChild(inputCell);
+      inner.appendChild(cachedCell);
+      inner.appendChild(outputCell);
+      inner.appendChild(totalCell);
+      inner.appendChild(actionsCell);
+
+      rowWrapper.appendChild(inner);
+      expensesContainer.appendChild(rowWrapper);
+
+      // Determine default model
+      const defaultModel = initial.model && MODEL_PRICING[initial.model]
+        ? initial.model
+        : (MODEL_PRICING["gpt-5.2"] ? "gpt-5.2" : MODEL_ORDER[0]);
+
+      modelSelect.value = defaultModel;
+      if (initial.inputTokens != null) inputInput.value = initial.inputTokens;
+      if (initial.cachedTokens != null) cachedInput.value = initial.cachedTokens;
+      if (initial.outputTokens != null) outputInput.value = initial.outputTokens;
+
+      const rowState = {
+        root: rowWrapper,
+        modelSelect,
+        inputInput,
+        cachedInput,
+        outputInput,
+        totalValue,
+      };
+
+      rows.push(rowState);
+
+      // Event handlers: recalc + update URL
+      const onChange = () => {
+        recalculateAll();
+        updateURLState();
+      };
+
+      modelSelect.addEventListener('change', onChange);
+      inputInput.addEventListener('input', onChange);
+      cachedInput.addEventListener('input', onChange);
+      outputInput.addEventListener('input', onChange);
+
+      removeBtn.addEventListener('click', () => {
+        const idx = rows.indexOf(rowState);
+        if (idx !== -1) {
+          rows.splice(idx, 1);
+        }
+        rowWrapper.remove();
+        recalculateAll();
+        updateURLState();
+        if (rows.length === 0) {
+          // Always keep at least one empty row
+          createExpenseRow();
+        }
       });
 
-      function populateModelSelect() {
-        MODELS.forEach((model) => {
-          const option = document.createElement("option");
-          option.value = model.id;
-          option.textContent = `${model.label} — In: ${priceFmt.format(
-            model.inputPerM
-          )} /M · Out: ${priceFmt.format(model.outputPerM)} /M`;
-          modelSelect.appendChild(option);
+      recalculateAll();
+      updateURLState();
+    }
+
+    function recalculateAll() {
+      let totalInputCost = 0;
+      let totalCachedCost = 0;
+      let totalOutputCost = 0;
+
+      let totalInputTokens = 0;
+      let totalCachedTokens = 0;
+      let totalOutputTokens = 0;
+
+      rows.forEach(row => {
+        const modelName = row.modelSelect.value;
+        const pricing = MODEL_PRICING[modelName];
+        if (!pricing) return;
+
+        const inputTokens = parseNumber(row.inputInput.value);
+        const cachedTokens = parseNumber(row.cachedInput.value);
+        const outputTokens = parseNumber(row.outputInput.value);
+
+        totalInputTokens += inputTokens;
+        totalCachedTokens += cachedTokens;
+        totalOutputTokens += outputTokens;
+
+        const inputCost = pricing.input * (inputTokens / 1_000_000);
+        const cachedCost = pricing.cached * (cachedTokens / 1_000_000);
+        const outputCost = pricing.output * (outputTokens / 1_000_000);
+        const rowTotal = inputCost + cachedCost + outputCost;
+
+        totalInputCost += inputCost;
+        totalCachedCost += cachedCost;
+        totalOutputCost += outputCost;
+
+        row.totalValue.textContent = formatMoney(rowTotal);
+      });
+
+      const grandTotal = totalInputCost + totalCachedCost + totalOutputCost;
+
+      totalInputCostEl.textContent = formatMoney(totalInputCost);
+      totalCachedCostEl.textContent = formatMoney(totalCachedCost);
+      totalOutputCostEl.textContent = formatMoney(totalOutputCost);
+      grandTotalCostEl.textContent = formatMoney(grandTotal);
+
+      const totalTokens = totalInputTokens + totalCachedTokens + totalOutputTokens;
+      totalTokensEl.textContent = totalTokens.toLocaleString();
+      totalInputTokensEl.textContent = totalInputTokens.toLocaleString();
+      totalCachedTokensEl.textContent = totalCachedTokens.toLocaleString();
+      totalOutputTokensEl.textContent = totalOutputTokens.toLocaleString();
+    }
+
+    /**************************
+     * URL state encoding
+     **************************/
+    function getCurrentThemeSetting() {
+      const stored = localStorage.getItem(THEME_KEY);
+      if (stored) return stored;
+      // if not stored, treat as 'system'
+      return 'system';
+    }
+
+    function serializeState() {
+      const rowData = rows.map(row => ({
+        m: row.modelSelect.value,
+        i: parseNumber(row.inputInput.value),
+        c: parseNumber(row.cachedInput.value),
+        o: parseNumber(row.outputInput.value)
+      }));
+
+      return {
+        t: getCurrentThemeSetting(),
+        r: rowData
+      };
+    }
+
+    function encodeState(stateObj) {
+      try {
+        const json = JSON.stringify(stateObj);
+        return btoa(encodeURIComponent(json)); // URI-safe
+      } catch (e) {
+        console.error("Failed to encode state", e);
+        return null;
+      }
+    }
+
+    function decodeState(encoded) {
+      try {
+        const json = decodeURIComponent(atob(encoded));
+        const obj = JSON.parse(json);
+        if (!obj || typeof obj !== 'object') return null;
+        if (!Array.isArray(obj.r)) return null;
+        return obj;
+      } catch (e) {
+        console.warn("Failed to decode state from URL", e);
+        return null;
+      }
+    }
+
+    function updateURLState() {
+      const state = serializeState();
+      const encoded = encodeState(state);
+      const url = new URL(window.location.href);
+
+      if (encoded && state.r.length > 0) {
+        url.searchParams.set('state', encoded);
+      } else {
+        url.searchParams.delete('state');
+      }
+
+      window.history.replaceState({}, '', url.toString());
+    }
+
+    function loadStateFromURL() {
+      const url = new URL(window.location.href);
+      const encoded = url.searchParams.get('state');
+      if (!encoded) return null;
+
+      const state = decodeState(encoded);
+      return state;
+    }
+
+    function applyLoadedState(state) {
+      // Clear any existing rows
+      rows.splice(0, rows.length);
+      expensesContainer.innerHTML = '';
+
+      // Theme
+      if (state.t) {
+        localStorage.setItem(THEME_KEY, state.t);
+        applyTheme(state.t);
+      }
+
+      if (!Array.isArray(state.r) || state.r.length === 0) {
+        createExpenseRow();
+        return;
+      }
+
+      state.r.forEach(r => {
+        const model = MODEL_PRICING[r.m] ? r.m : undefined;
+        createExpenseRow({
+          model,
+          inputTokens: typeof r.i === 'number' ? r.i : 0,
+          cachedTokens: typeof r.c === 'number' ? r.c : 0,
+          outputTokens: typeof r.o === 'number' ? r.o : 0
         });
+      });
+
+      recalculateAll();
+    }
+
+    /**************************
+     * Share button
+     **************************/
+    async function handleShareClick() {
+      // Ensure URL is up-to-date with latest state
+      updateURLState();
+      const url = window.location.href;
+
+      // Try Web Share API first (mobile-friendly)
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'OpenAI Token Price Calculator',
+            text: 'Here is a token cost breakdown using OpenAI’s latest pricing.',
+            url
+          });
+          return;
+        } catch (err) {
+          // User cancelled or share not available; fall back to clipboard.
+          console.warn('Share via navigator.share failed, falling back to clipboard', err);
+        }
       }
 
-      function getSelectedModel() {
-        const id = modelSelect.value;
-        return MODELS.find((m) => m.id === id) ?? MODELS[0];
+      // Clipboard fallback
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(url);
+          shareButton.textContent = 'Copied!';
+          setTimeout(() => (shareButton.textContent = 'Share'), 1500);
+          return;
+        } catch (err) {
+          console.error('Failed to copy URL to clipboard', err);
+        }
       }
 
-      function safeNumber(value) {
-        const n = parseFloat(value);
-        if (Number.isNaN(n) || !Number.isFinite(n)) return 0;
-        return n < 0 ? 0 : n;
+      // Ultimate fallback: prompt
+      window.prompt('Copy this URL:', url);
+    }
+
+    /**************************
+     * Init
+     **************************/
+    document.addEventListener('DOMContentLoaded', () => {
+      // Theme first (before painting)
+      loadInitialTheme();
+
+      // Load from URL if present
+      const loaded = loadStateFromURL();
+      if (loaded) {
+        applyLoadedState(loaded);
+      } else {
+        // At least one default row
+        createExpenseRow();
       }
 
-      function updateRates(model) {
-        rateInputEl.textContent = `${priceFmt.format(model.inputPerM)} / 1M tokens`;
-        rateCachedEl.textContent = `${priceFmt.format(
-          model.cachedPerM
-        )} / 1M tokens`;
-        rateOutputEl.textContent = `${priceFmt.format(
-          model.outputPerM
-        )} / 1M tokens`;
-      }
+      // Hook buttons
+      addRowButton.addEventListener('click', () => {
+        createExpenseRow();
+      });
 
-      function recalculate() {
-        const model = getSelectedModel();
-
-        const inputTokens = safeNumber(inputTokensEl.value);
-        const cachedTokens = safeNumber(cachedInputTokensEl.value);
-        const outputTokens = safeNumber(outputTokensEl.value);
-
-        // Update inputs if we clamped them
-        inputTokensEl.value = inputTokens;
-        cachedInputTokensEl.value = cachedTokens;
-        outputTokensEl.value = outputTokens;
-
-        const perTokenInput = model.inputPerM / 1_000_000;
-        const perTokenCached = model.cachedPerM / 1_000_000;
-        const perTokenOutput = model.outputPerM / 1_000_000;
-
-        const costInput = inputTokens * perTokenInput;
-        const costCached = cachedTokens * perTokenCached;
-        const costOutput = outputTokens * perTokenOutput;
-        const totalCost = costInput + costCached + costOutput;
-
-        costInputEl.textContent = currencyFmt.format(costInput);
-        costCachedEl.textContent = currencyFmt.format(costCached);
-        costOutputEl.textContent = currencyFmt.format(costOutput);
-        costTotalEl.textContent = currencyFmt.format(totalCost);
-
-        summaryInputEl.textContent = inputTokens.toLocaleString("en-US");
-        summaryCachedEl.textContent = cachedTokens.toLocaleString("en-US");
-        summaryOutputEl.textContent = outputTokens.toLocaleString("en-US");
-        summaryTotalTokensEl.textContent = (
-          inputTokens + cachedTokens + outputTokens
-        ).toLocaleString("en-US");
-
-        updateRates(model);
-      }
-
-      function init() {
-        populateModelSelect();
-
-        // Default selection: gpt-5.2-chat-latest if present, otherwise first
-        const defaultId = "gpt-5.2-chat-latest";
-        const hasDefault = MODELS.some((m) => m.id === defaultId);
-        modelSelect.value = hasDefault ? defaultId : MODELS[0]?.id;
-
-        updateRates(getSelectedModel());
-        recalculate();
-
-        modelSelect.addEventListener("change", recalculate);
-        inputTokensEl.addEventListener("input", recalculate);
-        cachedInputTokensEl.addEventListener("input", recalculate);
-        outputTokensEl.addEventListener("input", recalculate);
-      }
-
-      init();
-    </script>
-  </body>
+      shareButton.addEventListener('click', handleShareClick);
+      themeToggle.addEventListener('click', toggleTheme);
+    });
+  </script>
+</body>
 </html>
