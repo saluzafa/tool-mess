@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OpenAI GPT Token Price Calculator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Tailwind v4 Play CDN (dev use) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <!-- Optional: small custom tweaks -->
+    <style type="text/tailwindcss">
+      @theme {
+        --color-bg: #020617; /* slate-950 */
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-[var(--color-bg)] text-slate-100 antialiased">
+    <main class="flex items-center justify-center px-4 py-10">
+      <div class="w-full max-w-4xl rounded-2xl bg-slate-900/70 border border-slate-800 shadow-xl backdrop-blur-sm p-6 sm:p-8">
+        <header class="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between mb-6">
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">
+              OpenAI GPT Token Price Calculator
+            </h1>
+            <p class="mt-1 text-sm text-slate-400">
+              Uses <span class="font-medium text-slate-200">Standard tier</span> pricing,
+              per <span class="font-mono">1M tokens</span>, for current OpenAI text models.
+            </p>
+          </div>
+          <p class="text-xs text-slate-500 mt-2 sm:mt-0">
+            Currency: USD · Pricing source: OpenAI docs
+          </p>
+        </header>
+
+        <!-- Form -->
+        <section class="space-y-6">
+          <!-- Model & rates -->
+          <div class="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <!-- Model select -->
+            <div class="space-y-2">
+              <label for="modelSelect" class="block text-sm font-medium text-slate-200">
+                Model
+              </label>
+              <select
+                id="modelSelect"
+                class="block w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+              ></select>
+              <p class="text-xs text-slate-500">
+                Prices are per 1M tokens, Standard processing tier.
+              </p>
+            </div>
+
+            <!-- Model price info -->
+            <div class="grid grid-cols-3 gap-3 text-xs sm:text-sm">
+              <div class="rounded-lg border border-slate-800 bg-slate-900/80 p-3">
+                <div class="text-slate-400">Input price</div>
+                <div id="rateInput" class="mt-1 font-mono text-slate-50 text-sm">
+                  –
+                </div>
+                <div class="mt-1 text-[0.7rem] text-slate-500">
+                  Billed on non-cached prompt tokens.
+                </div>
+              </div>
+              <div class="rounded-lg border border-slate-800 bg-slate-900/80 p-3">
+                <div class="text-slate-400">Cached input price</div>
+                <div id="rateCached" class="mt-1 font-mono text-slate-50 text-sm">
+                  –
+                </div>
+                <div class="mt-1 text-[0.7rem] text-slate-500">
+                  Billed on tokens served from prompt cache.
+                </div>
+              </div>
+              <div class="rounded-lg border border-slate-800 bg-slate-900/80 p-3">
+                <div class="text-slate-400">Output price</div>
+                <div id="rateOutput" class="mt-1 font-mono text-slate-50 text-sm">
+                  –
+                </div>
+                <div class="mt-1 text-[0.7rem] text-slate-500">
+                  Billed on model’s response tokens.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Token inputs -->
+          <div class="grid gap-4 md:grid-cols-3">
+            <div class="space-y-2">
+              <label for="inputTokens" class="block text-sm font-medium text-slate-200">
+                Input tokens
+              </label>
+              <input
+                id="inputTokens"
+                type="number"
+                min="0"
+                inputmode="numeric"
+                class="block w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                placeholder="e.g. 1500"
+              />
+              <p class="text-xs text-slate-500">
+                Non-cached prompt tokens sent to the model.
+              </p>
+            </div>
+
+            <div class="space-y-2">
+              <label for="cachedInputTokens" class="block text-sm font-medium text-slate-200">
+                Cached input tokens
+              </label>
+              <input
+                id="cachedInputTokens"
+                type="number"
+                min="0"
+                inputmode="numeric"
+                value="0"
+                class="block w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                placeholder="0"
+              />
+              <p class="text-xs text-slate-500">
+                Tokens served from prompt cache (if enabled).
+              </p>
+            </div>
+
+            <div class="space-y-2">
+              <label for="outputTokens" class="block text-sm font-medium text-slate-200">
+                Output tokens
+              </label>
+              <input
+                id="outputTokens"
+                type="number"
+                min="0"
+                inputmode="numeric"
+                class="block w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                placeholder="e.g. 800"
+              />
+              <p class="text-xs text-slate-500">
+                Tokens generated by the model.
+              </p>
+            </div>
+          </div>
+
+          <!-- Results -->
+          <section
+            class="mt-2 grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-start"
+          >
+            <!-- Costs -->
+            <div class="space-y-2">
+              <h2 class="text-sm font-semibold text-slate-200 uppercase tracking-wide">
+                Cost breakdown
+              </h2>
+              <div class="rounded-lg border border-slate-800 bg-slate-900/80 p-4 space-y-3 text-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-300">Input cost</span>
+                  <span id="costInput" class="font-mono text-slate-50">$0.0000</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-300">Cached input cost</span>
+                  <span id="costCached" class="font-mono text-slate-50">$0.0000</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-300">Output cost</span>
+                  <span id="costOutput" class="font-mono text-slate-50">$0.0000</span>
+                </div>
+                <div class="border-t border-slate-800 pt-3 mt-2 flex items-center justify-between">
+                  <span class="text-slate-200 font-medium">Total cost</span>
+                  <span id="costTotal" class="font-mono text-lg text-emerald-300">
+                    $0.0000
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Token summary -->
+            <div class="space-y-2">
+              <h2 class="text-sm font-semibold text-slate-200 uppercase tracking-wide">
+                Token summary
+              </h2>
+              <div class="rounded-lg border border-slate-800 bg-slate-900/80 p-4 grid gap-3 text-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-300">Input tokens</span>
+                  <span id="summaryInput" class="font-mono text-slate-50">0</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-300">Cached input tokens</span>
+                  <span id="summaryCached" class="font-mono text-slate-50">0</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-300">Output tokens</span>
+                  <span id="summaryOutput" class="font-mono text-slate-50">0</span>
+                </div>
+                <div class="border-t border-slate-800 pt-3 mt-2 flex items-center justify-between">
+                  <span class="text-slate-200 font-medium">Total tokens</span>
+                  <span id="summaryTotalTokens" class="font-mono text-sky-300">0</span>
+                </div>
+                <p class="mt-1 text-xs text-slate-500">
+                  Costs are computed as:
+                  <span class="font-mono">
+                    tokens × (price per 1M ÷ 1,000,000)
+                  </span>.
+                </p>
+              </div>
+            </div>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      // Pricing data (USD per 1M text tokens, Standard tier)
+      // Source: OpenAI Pricing docs, "Text tokens" → Standard processing tier. :contentReference[oaicite:1]{index=1}
+      const MODELS = [
+        // GPT-5 family
+        { id: "gpt-5.2", label: "gpt-5.2", inputPerM: 1.75, cachedPerM: 0.175, outputPerM: 14.0 },
+        { id: "gpt-5.1", label: "gpt-5.1", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
+        { id: "gpt-5", label: "gpt-5", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
+        { id: "gpt-5-mini", label: "gpt-5-mini", inputPerM: 0.25, cachedPerM: 0.025, outputPerM: 2.0 },
+        { id: "gpt-5-nano", label: "gpt-5-nano", inputPerM: 0.05, cachedPerM: 0.005, outputPerM: 0.4 },
+        { id: "gpt-5.2-chat-latest", label: "gpt-5.2-chat-latest", inputPerM: 1.75, cachedPerM: 0.175, outputPerM: 14.0 },
+        { id: "gpt-5.1-chat-latest", label: "gpt-5.1-chat-latest", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
+        { id: "gpt-5-chat-latest", label: "gpt-5-chat-latest", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
+        { id: "gpt-5.1-codex-max", label: "gpt-5.1-codex-max", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
+        { id: "gpt-5.1-codex", label: "gpt-5.1-codex", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
+        { id: "gpt-5-codex", label: "gpt-5-codex", inputPerM: 1.25, cachedPerM: 0.125, outputPerM: 10.0 },
+
+        // GPT-4.1, GPT-4o family
+        { id: "gpt-4.1", label: "gpt-4.1", inputPerM: 2.0, cachedPerM: 0.5, outputPerM: 8.0 },
+        { id: "gpt-4.1-mini", label: "gpt-4.1-mini", inputPerM: 0.4, cachedPerM: 0.1, outputPerM: 1.6 },
+        { id: "gpt-4.1-nano", label: "gpt-4.1-nano", inputPerM: 0.1, cachedPerM: 0.025, outputPerM: 0.4 },
+        { id: "gpt-4o", label: "gpt-4o", inputPerM: 2.5, cachedPerM: 1.25, outputPerM: 10.0 },
+        { id: "gpt-4o-mini", label: "gpt-4o-mini", inputPerM: 0.15, cachedPerM: 0.075, outputPerM: 0.6 },
+
+        // Realtime models (text-token pricing)
+        {
+          id: "gpt-realtime",
+          label: "gpt-realtime",
+          inputPerM: 4.0,
+          cachedPerM: 0.4,
+          outputPerM: 16.0,
+        },
+        {
+          id: "gpt-realtime-mini",
+          label: "gpt-realtime-mini",
+          inputPerM: 0.6,
+          cachedPerM: 0.06,
+          outputPerM: 2.4,
+        },
+        {
+          id: "gpt-4o-realtime-preview",
+          label: "gpt-4o-realtime-preview",
+          inputPerM: 5.0,
+          cachedPerM: 2.5,
+          outputPerM: 20.0,
+        },
+        {
+          id: "gpt-4o-mini-realtime-preview",
+          label: "gpt-4o-mini-realtime-preview",
+          inputPerM: 0.6,
+          cachedPerM: 0.3,
+          outputPerM: 2.4,
+        },
+
+        // Reasoning models (o-series)
+        { id: "o1", label: "o1", inputPerM: 15.0, cachedPerM: 7.5, outputPerM: 60.0 },
+        { id: "o3", label: "o3", inputPerM: 2.0, cachedPerM: 0.5, outputPerM: 8.0 },
+        {
+          id: "o3-deep-research",
+          label: "o3-deep-research",
+          inputPerM: 10.0,
+          cachedPerM: 2.5,
+          outputPerM: 40.0,
+        },
+        { id: "o4-mini", label: "o4-mini", inputPerM: 1.1, cachedPerM: 0.275, outputPerM: 4.4 },
+        {
+          id: "o4-mini-deep-research",
+          label: "o4-mini-deep-research",
+          inputPerM: 2.0,
+          cachedPerM: 0.5,
+          outputPerM: 8.0,
+        },
+        { id: "o3-mini", label: "o3-mini", inputPerM: 1.1, cachedPerM: 0.55, outputPerM: 4.4 },
+        { id: "o1-mini", label: "o1-mini", inputPerM: 1.1, cachedPerM: 0.55, outputPerM: 4.4 },
+
+        // Code / search-oriented
+        {
+          id: "gpt-5.1-codex-mini",
+          label: "gpt-5.1-codex-mini",
+          inputPerM: 0.25,
+          cachedPerM: 0.025,
+          outputPerM: 2.0,
+        },
+        {
+          id: "codex-mini-latest",
+          label: "codex-mini-latest",
+          inputPerM: 1.5,
+          cachedPerM: 0.375,
+          outputPerM: 6.0,
+        },
+        {
+          id: "gpt-5-search-api",
+          label: "gpt-5-search-api",
+          inputPerM: 1.25,
+          cachedPerM: 0.125,
+          outputPerM: 10.0,
+        },
+
+        // Image models (text-token side)
+        {
+          id: "gpt-image-1.5",
+          label: "gpt-image-1.5 (text tokens)",
+          inputPerM: 5.0,
+          cachedPerM: 1.25,
+          outputPerM: 10.0,
+        },
+        {
+          id: "chatgpt-image-latest",
+          label: "chatgpt-image-latest (text tokens)",
+          inputPerM: 5.0,
+          cachedPerM: 1.25,
+          outputPerM: 10.0,
+        },
+      ];
+
+      const modelSelect = document.getElementById("modelSelect");
+      const inputTokensEl = document.getElementById("inputTokens");
+      const cachedInputTokensEl = document.getElementById("cachedInputTokens");
+      const outputTokensEl = document.getElementById("outputTokens");
+
+      const rateInputEl = document.getElementById("rateInput");
+      const rateCachedEl = document.getElementById("rateCached");
+      const rateOutputEl = document.getElementById("rateOutput");
+
+      const costInputEl = document.getElementById("costInput");
+      const costCachedEl = document.getElementById("costCached");
+      const costOutputEl = document.getElementById("costOutput");
+      const costTotalEl = document.getElementById("costTotal");
+
+      const summaryInputEl = document.getElementById("summaryInput");
+      const summaryCachedEl = document.getElementById("summaryCached");
+      const summaryOutputEl = document.getElementById("summaryOutput");
+      const summaryTotalTokensEl = document.getElementById("summaryTotalTokens");
+
+      const currencyFmt = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 4,
+        maximumFractionDigits: 6,
+      });
+
+      const priceFmt = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 4,
+      });
+
+      function populateModelSelect() {
+        MODELS.forEach((model) => {
+          const option = document.createElement("option");
+          option.value = model.id;
+          option.textContent = `${model.label} — In: ${priceFmt.format(
+            model.inputPerM
+          )} /M · Out: ${priceFmt.format(model.outputPerM)} /M`;
+          modelSelect.appendChild(option);
+        });
+      }
+
+      function getSelectedModel() {
+        const id = modelSelect.value;
+        return MODELS.find((m) => m.id === id) ?? MODELS[0];
+      }
+
+      function safeNumber(value) {
+        const n = parseFloat(value);
+        if (Number.isNaN(n) || !Number.isFinite(n)) return 0;
+        return n < 0 ? 0 : n;
+      }
+
+      function updateRates(model) {
+        rateInputEl.textContent = `${priceFmt.format(model.inputPerM)} / 1M tokens`;
+        rateCachedEl.textContent = `${priceFmt.format(
+          model.cachedPerM
+        )} / 1M tokens`;
+        rateOutputEl.textContent = `${priceFmt.format(
+          model.outputPerM
+        )} / 1M tokens`;
+      }
+
+      function recalculate() {
+        const model = getSelectedModel();
+
+        const inputTokens = safeNumber(inputTokensEl.value);
+        const cachedTokens = safeNumber(cachedInputTokensEl.value);
+        const outputTokens = safeNumber(outputTokensEl.value);
+
+        // Update inputs if we clamped them
+        inputTokensEl.value = inputTokens;
+        cachedInputTokensEl.value = cachedTokens;
+        outputTokensEl.value = outputTokens;
+
+        const perTokenInput = model.inputPerM / 1_000_000;
+        const perTokenCached = model.cachedPerM / 1_000_000;
+        const perTokenOutput = model.outputPerM / 1_000_000;
+
+        const costInput = inputTokens * perTokenInput;
+        const costCached = cachedTokens * perTokenCached;
+        const costOutput = outputTokens * perTokenOutput;
+        const totalCost = costInput + costCached + costOutput;
+
+        costInputEl.textContent = currencyFmt.format(costInput);
+        costCachedEl.textContent = currencyFmt.format(costCached);
+        costOutputEl.textContent = currencyFmt.format(costOutput);
+        costTotalEl.textContent = currencyFmt.format(totalCost);
+
+        summaryInputEl.textContent = inputTokens.toLocaleString("en-US");
+        summaryCachedEl.textContent = cachedTokens.toLocaleString("en-US");
+        summaryOutputEl.textContent = outputTokens.toLocaleString("en-US");
+        summaryTotalTokensEl.textContent = (
+          inputTokens + cachedTokens + outputTokens
+        ).toLocaleString("en-US");
+
+        updateRates(model);
+      }
+
+      function init() {
+        populateModelSelect();
+
+        // Default selection: gpt-5.2-chat-latest if present, otherwise first
+        const defaultId = "gpt-5.2-chat-latest";
+        const hasDefault = MODELS.some((m) => m.id === defaultId);
+        modelSelect.value = hasDefault ? defaultId : MODELS[0]?.id;
+
+        updateRates(getSelectedModel());
+        recalculate();
+
+        modelSelect.addEventListener("change", recalculate);
+        inputTokensEl.addEventListener("input", recalculate);
+        cachedInputTokensEl.addEventListener("input", recalculate);
+        outputTokensEl.addEventListener("input", recalculate);
+      }
+
+      init();
+    </script>
+  </body>
+</html>
