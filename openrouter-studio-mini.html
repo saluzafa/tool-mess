@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenRouter Studio - Hash State</title>
+    <title>OpenRouter Studio Mini</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
@@ -11,11 +11,48 @@
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
         .drag-overlay { transition: background-color 0.2s ease, border-color 0.2s ease; }
+
+        .slide-fade-enter-active { transition: all 0.3s ease-out; }
+        .slide-fade-leave-active { transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1); }
+        .slide-fade-enter-from { transform: translateX(20px); opacity: 0; }
+        .slide-fade-leave-to { transform: translateX(20px); opacity: 0; }
+
+        /* Progress bar animation */
+        @keyframes shrink {
+            from { width: 100%; }
+            to { width: 0%; }
+        }
+        .toast-progress {
+            animation: shrink 10s linear forwards;
+        }
     </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-900">
 
-<div id="app" v-cloak class="min-h-screen flex flex-col">
+<div id="app" v-cloak class="min-h-screen flex flex-col relative">
+
+    <transition name="slide-fade">
+        <div v-if="showErrorToast" class="fixed top-6 right-6 z-50 flex flex-col bg-red-600 text-white rounded-xl shadow-2xl max-w-md border border-red-500 overflow-hidden">
+            <div class="flex items-center gap-3 px-4 py-3">
+                <div class="bg-white/20 p-1.5 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-bold uppercase tracking-wider opacity-80">Request Failed</p>
+                    <p class="text-sm font-medium leading-tight">{{ error }}</p>
+                </div>
+                <button @click="showErrorToast = false" class="hover:bg-white/20 p-1 rounded-lg transition-colors cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="h-1 bg-white/30 toast-progress"></div>
+        </div>
+    </transition>
+
     <header class="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
         <h1 class="text-xl font-bold bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
             OpenRouter Studio
@@ -61,7 +98,7 @@
                 <label class="text-sm font-semibold text-slate-700">User Prompt</label>
                 <textarea
                     v-model="userPrompt"
-                    rows="10"
+                    rows="8"
                     placeholder="Enter your instructions here..."
                     class="w-full border border-slate-300 rounded-xl p-4 bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-shadow hover:shadow-sm"
                 ></textarea>
@@ -78,7 +115,7 @@
                 <div v-show="showPrefix" class="p-4 border-t border-slate-100">
                     <textarea
                         v-model="promptPrefix"
-                        rows="10"
+                        rows="6"
                         class="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                     ></textarea>
                 </div>
@@ -86,97 +123,110 @@
 
             <div class="p-5 border border-slate-200 rounded-xl bg-white shadow-xs">
                 <label class="text-sm font-semibold text-slate-700 block mb-3">Image Input (Optional - Not stored in URL)</label>
-
                 <div class="flex flex-col gap-4">
-                    <div class="flex gap-2 items-center">
-                        <div class="relative flex-1">
-                            <input
-                                type="text"
-                                v-model="imageUrl"
-                                @input="imagePreview = imageUrl"
-                                placeholder="Paste Image URL or use drop zone below..."
-                                class="w-full border border-slate-300 rounded-lg pl-3 pr-8 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                            >
-                             <button v-if="imageUrl" @click="clearImage" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                    </div>
-
                     <div
-                        class="relative h-48 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center cursor-pointer overflow-hidden group drag-overlay"
+                        class="relative h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center cursor-pointer overflow-hidden group drag-overlay"
                         :class="isDragging ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50/50'"
                         @dragenter.prevent="isDragging = true"
                         @dragover.prevent="isDragging = true"
                         @dragleave.prevent="isDragging = false"
                         @drop.prevent="handleDrop"
                     >
-                        <input
-                            type="file"
-                            ref="fileInput"
-                            @change="handleFileUpload"
-                            accept="image/*"
-                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                        >
-
-                        <div v-if="!imagePreview" class="pointer-events-none flex flex-col items-center gap-3 p-4 transition-opacity group-hover:opacity-70 z-10">
-                            <div class="p-3 bg-slate-100 rounded-full text-slate-500 transition-colors" :class="isDragging ? 'text-blue-500 bg-blue-100' : ''">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
-                                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                                </svg>
-                            </div>
-                            <div>
-                                 <p class="text-sm font-medium text-slate-700" :class="isDragging ? 'text-blue-700' : ''">
-                                    {{ isDragging ? 'Drop image here' : 'Click to upload or drag and drop' }}
-                                 </p>
-                                 <p class="text-xs text-slate-500 mt-1">PNG, JPG, WebP, GIF</p>
-                            </div>
+                        <input type="file" ref="fileInput" @change="handleFileUpload" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
+                        <div v-if="!imagePreview" class="pointer-events-none flex flex-col items-center gap-2 p-4 z-10">
+                            <p class="text-sm font-medium text-slate-700">Click or drag image</p>
                         </div>
+                        <div v-else class="absolute inset-0 w-full h-full p-2 z-10 flex items-center justify-center bg-slate-50">
+                            <img :src="imagePreview" class="max-w-full max-h-full object-contain rounded-lg">
+                            <button @click.stop="clearImage" class="absolute top-2 right-2 bg-white/80 rounded-full p-1 shadow-sm hover:bg-white transition-colors pointer-events-auto">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                        <div v-else class="absolute inset-0 w-full h-full p-2 z-10 pointer-events-none flex items-center justify-center bg-slate-50">
-                            <img :src="imagePreview" class="max-w-full max-h-full object-contain rounded-lg shadow-sm">
-                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-xl flex items-center justify-center text-white/0 group-hover:text-white font-medium">
-                                Replace Image
+            <div class="mt-4 flex flex-col gap-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest">History</h2>
+                    <button @click="clearHistory" v-if="history.length" class="text-[10px] text-red-500 font-bold hover:underline cursor-pointer">CLEAR ALL</button>
+                </div>
+
+                <div v-if="history.length === 0" class="border border-dashed border-slate-200 rounded-xl p-8 text-center">
+                    <p class="text-sm text-slate-400 italic">No previous generations yet.</p>
+                </div>
+
+                <div class="grid grid-cols-1 gap-3">
+                    <div
+                        v-for="item in history"
+                        :key="item.id"
+                        @click="openHistoryItem(item)"
+                        class="group bg-white border border-slate-200 p-4 rounded-xl hover:border-blue-400 hover:shadow-md transition-all cursor-pointer flex justify-between items-center"
+                    >
+                        <div class="flex-1 min-w-0 pr-4">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded uppercase tracking-tighter">{{ item.model.split('/').pop() }}</span>
+                                <span class="text-[10px] text-slate-400">{{ formatDate(item.timestamp) }}</span>
                             </div>
+                            <p class="text-sm text-slate-700 truncate font-medium">{{ item.userPrompt || '(No prompt)' }}</p>
+                        </div>
+                        <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-span-4 flex flex-col">
+        <div class="col-span-4 flex flex-col h-[calc(100vh-140px)] sticky top-24">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
                     <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Result</label>
-                    <span v-if="generationTime && !loading" class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold border border-indigo-200">
+                    <span v-if="generationTime && !loading && !error" class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold border border-indigo-200">
                         {{ generationTime }}s
+                    </span>
+                    <span v-if="error" class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-200 uppercase">
+                        Error
                     </span>
                 </div>
                 <button
-                    v-if="result"
+                    v-if="result && !error"
                     @click="copyResult"
                     class="text-xs bg-slate-200 hover:bg-slate-300 px-2 py-1 rounded transition-colors cursor-pointer shadow-xs active:scale-95"
                 >
                     {{ copied ? 'Copied!' : 'Copy' }}
                 </button>
             </div>
-            <div class="flex-1 bg-slate-900 rounded-2xl p-6 text-slate-100 overflow-y-auto custom-scrollbar font-mono text-sm relative border border-slate-800 shadow-xl">
-                <div v-if="!result && !loading" class="text-slate-600 flex flex-col items-center justify-center h-full text-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="w-12 h-12 mb-4 opacity-20"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z" /></svg>
+
+            <div class="flex-1 bg-slate-900 rounded-2xl p-6 text-slate-100 overflow-y-auto custom-scrollbar font-mono text-sm relative border border-slate-800 shadow-xl" :class="{'ring-2 ring-red-500/50 bg-red-950/20 border-red-900/50': error}">
+
+                <div v-if="!result && !loading && !error" class="text-slate-600 flex flex-col items-center justify-center h-full text-center">
                     <p>Output will appear here...</p>
                     <p class="text-[10px] mt-2 opacity-50 uppercase tracking-tighter">Press ⌘ + Enter to Run</p>
                 </div>
 
                 <div v-if="loading" class="flex flex-col gap-4">
-                    <div class="flex gap-1">
-                        <span class="animate-bounce inline-block">.</span>
-                        <span class="animate-bounce [animation-delay:0.2s] inline-block">.</span>
-                        <span class="animate-bounce [animation-delay:0.4s] inline-block">.</span>
-                    </div>
+                    <div class="flex gap-1"><span class="animate-bounce">.</span><span class="animate-bounce [animation-delay:0.2s]">.</span><span class="animate-bounce [animation-delay:0.4s]">.</span></div>
                 </div>
 
-                <div v-if="result" class="whitespace-pre-wrap leading-relaxed">{{ result }}</div>
-                <div v-if="error" class="text-red-400 p-4 bg-red-950/30 rounded-lg border border-red-900/50 text-xs">{{ error }}</div>
+                <div v-if="error" class="h-full flex flex-col items-center justify-center text-center p-4">
+                    <div class="bg-red-500/10 p-4 rounded-full mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-red-400 font-bold text-lg mb-2">Generation Error</h3>
+                    <p class="text-red-300/80 text-xs leading-relaxed max-w-xs">
+                        {{ error }}
+                    </p>
+                    <button @click="sendRequest" class="mt-6 text-[10px] font-bold tracking-widest uppercase border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white px-4 py-2 rounded-lg transition-all cursor-pointer">
+                        Try Again
+                    </button>
+                </div>
+
+                <div v-if="result && !error" class="whitespace-pre-wrap leading-relaxed">{{ result }}</div>
             </div>
         </div>
     </main>
@@ -187,7 +237,6 @@ const { createApp, ref, watch, onMounted, onUnmounted } = Vue;
 
 createApp({
     setup() {
-        // Core State
         const apiKey = ref('');
         const model = ref('qwen/qwen3-vl-235b-a22b-thinking');
         const reasoningEffort = ref('none');
@@ -196,47 +245,89 @@ createApp({
         const imageUrl = ref('');
         const imagePreview = ref(null);
 
-        // UI State
         const showPrefix = ref(false);
         const result = ref('');
         const loading = ref(false);
         const error = ref(null);
+        const showErrorToast = ref(false);
         const copied = ref(false);
         const isDragging = ref(false);
         const fileInput = ref(null);
         const generationTime = ref(null);
 
-        // --- NEW: Hash State Management ---
+        const history = ref(JSON.parse(localStorage.getItem('or_studio_history') || '[]'));
+
+        // --- Toast Timer Logic ---
+        let toastTimeout = null;
+        const triggerErrorToast = (msg) => {
+            error.value = msg;
+            showErrorToast.value = true;
+
+            // Clear existing timer if any
+            if (toastTimeout) clearTimeout(toastTimeout);
+
+            // Set new timer for 10 seconds
+            toastTimeout = setTimeout(() => {
+                showErrorToast.value = false;
+            }, 10000);
+        };
+
         const stateToUrl = () => {
             const params = new URLSearchParams({
-                k: apiKey.value,
-                m: model.value,
-                r: reasoningEffort.value,
-                up: userPrompt.value,
-                pp: promptPrefix.value
-                // imageUrl is explicitly excluded to keep URL short
+                k: apiKey.value, m: model.value, r: reasoningEffort.value,
+                up: userPrompt.value, pp: promptPrefix.value, res: result.value
             });
-            // Update hash without triggering a reload
             window.history.replaceState(null, '', '#' + params.toString());
         };
 
         const urlToState = () => {
-            // Read from fragment (part after #)
             const hash = window.location.hash.substring(1);
             if (!hash) return;
-
             const params = new URLSearchParams(hash);
             if (params.get('k')) apiKey.value = params.get('k');
             if (params.get('m')) model.value = params.get('m');
             if (params.get('r')) reasoningEffort.value = params.get('r');
             if (params.get('up')) userPrompt.value = params.get('up');
             if (params.get('pp')) promptPrefix.value = params.get('pp');
+            if (params.get('res')) result.value = params.get('res');
         };
 
-        // Watch state changes and sync to URL
-        watch([apiKey, model, reasoningEffort, userPrompt, promptPrefix], stateToUrl);
+        watch([apiKey, model, reasoningEffort, userPrompt, promptPrefix, result], stateToUrl);
 
-        // --- Image Logic ---
+        const addToHistory = (resContent) => {
+            const entry = {
+                id: Date.now(), timestamp: new Date().toISOString(),
+                model: model.value, reasoningEffort: reasoningEffort.value,
+                userPrompt: userPrompt.value, promptPrefix: promptPrefix.value,
+                result: resContent
+            };
+            history.value.unshift(entry);
+            if (history.value.length > 50) history.value.pop();
+            localStorage.setItem('or_studio_history', JSON.stringify(history.value));
+        };
+
+        const openHistoryItem = (item) => {
+            error.value = null;
+            showErrorToast.value = false;
+            const params = new URLSearchParams({
+                k: apiKey.value, m: item.model, r: item.reasoningEffort,
+                up: item.userPrompt, pp: item.promptPrefix, res: item.result
+            });
+            window.open(`${window.location.origin}${window.location.pathname}#${params.toString()}`, '_blank');
+        };
+
+        const clearHistory = () => {
+            if(confirm('Clear all history items?')) {
+                history.value = [];
+                localStorage.removeItem('or_studio_history');
+            }
+        };
+
+        const formatDate = (isoStr) => {
+            const date = new Date(isoStr);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + date.toLocaleDateString();
+        };
+
         const processFile = (file) => {
              if (!file || !file.type.startsWith('image/')) return;
              const reader = new FileReader();
@@ -247,37 +338,24 @@ createApp({
              reader.readAsDataURL(file);
         };
 
-        const handleFileUpload = (e) => {
-            processFile(e.target.files[0]);
-            if (fileInput.value) fileInput.value.value = '';
-        };
+        const handleFileUpload = (e) => processFile(e.target.files[0]);
+        const handleDrop = (e) => { isDragging.value = false; processFile(e.dataTransfer.files[0]); };
+        const clearImage = () => { imageUrl.value = ''; imagePreview.value = null; };
 
-        const handleDrop = (e) => {
-            isDragging.value = false;
-            processFile(e.dataTransfer.files[0]);
-        };
-
-        const clearImage = () => {
-            imageUrl.value = '';
-            imagePreview.value = null;
-            if (fileInput.value) fileInput.value.value = '';
-        };
-
-        // --- API Execution ---
         const sendRequest = async () => {
             if (!apiKey.value) {
-                error.value = "Error: Please enter an OpenRouter API Key.";
+                triggerErrorToast("Please enter an OpenRouter API Key.");
                 return;
             }
 
             loading.value = true;
             error.value = null;
+            showErrorToast.value = false;
             result.value = '';
             generationTime.value = null;
 
             const messages = [];
             if (promptPrefix.value) messages.push({ role: "system", content: promptPrefix.value });
-
             const userMessageContent = [{ type: "text", text: userPrompt.value }];
             if (imageUrl.value) userMessageContent.push({ type: "image_url", image_url: { url: imageUrl.value } });
             messages.push({ role: "user", content: userMessageContent });
@@ -305,32 +383,30 @@ createApp({
                 generationTime.value = ((endTime - startTime) / 1000).toFixed(2);
 
                 if (data.error) throw new Error(data.error.message || "Unknown API Error");
-                result.value = data.choices[0].message.content;
+
+                const content = data.choices[0].message.content;
+                result.value = content;
+                addToHistory(content);
             } catch (err) {
-                error.value = err.message;
+                triggerErrorToast(err.message);
+                result.value = '';
             } finally {
                 loading.value = false;
             }
         };
 
-        // --- Utils ---
         const copyResult = () => {
             navigator.clipboard.writeText(result.value);
             copied.value = true;
             setTimeout(() => copied.value = false, 2000);
         };
 
-        const handleKeyDown = (e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') sendRequest();
-        };
+        const handleKeyDown = (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') sendRequest(); };
 
-        // --- Lifecycle ---
         onMounted(() => {
             urlToState();
             window.addEventListener('keydown', handleKeyDown);
-            // Listen for hash changes if the user pastes a new link manually
             window.addEventListener('hashchange', urlToState);
-
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
                 document.body.addEventListener(ev, e => e.preventDefault(), false);
             });
@@ -339,13 +415,15 @@ createApp({
         onUnmounted(() => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('hashchange', urlToState);
+            if (toastTimeout) clearTimeout(toastTimeout);
         });
 
         return {
             apiKey, model, reasoningEffort, userPrompt, promptPrefix,
-            imageUrl, imagePreview, showPrefix, result, loading, error,
-            copied, isDragging, fileInput, generationTime,
-            handleFileUpload, handleDrop, clearImage, sendRequest, copyResult
+            imageUrl, imagePreview, showPrefix, result, loading, error, showErrorToast,
+            copied, isDragging, fileInput, generationTime, history,
+            handleFileUpload, handleDrop, clearImage, sendRequest, copyResult,
+            openHistoryItem, clearHistory, formatDate
         };
     }
 }).mount('#app');
