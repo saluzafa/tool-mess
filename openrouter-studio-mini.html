@@ -21,14 +21,14 @@
             OpenRouter Studio
         </h1>
         <div class="flex items-center gap-4">
-            <input 
-                type="password" 
-                v-model="apiKey" 
-                placeholder="OpenRouter API Key" 
+            <input
+                type="password"
+                v-model="apiKey"
+                placeholder="OpenRouter API Key"
                 class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none w-64"
             >
-            <button 
-                @click="sendRequest" 
+            <button
+                @click="sendRequest"
                 :disabled="loading"
                 class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-sm active:scale-95"
             >
@@ -40,7 +40,7 @@
 
     <main class="flex-1 p-6 gap-6 grid grid-cols-12 max-w-[1600px] mx-auto w-full">
         <div class="col-span-8 flex flex-col gap-6">
-            
+
             <div class="grid grid-cols-2 gap-4">
                 <div class="flex flex-col gap-1.5">
                     <label class="text-sm font-semibold text-slate-700">Model ID</label>
@@ -59,16 +59,16 @@
 
             <div class="flex flex-col gap-1.5">
                 <label class="text-sm font-semibold text-slate-700">User Prompt</label>
-                <textarea 
-                    v-model="userPrompt" 
-                    rows="10" 
+                <textarea
+                    v-model="userPrompt"
+                    rows="10"
                     placeholder="Enter your instructions here..."
                     class="w-full border border-slate-300 rounded-xl p-4 bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-shadow hover:shadow-sm"
                 ></textarea>
             </div>
 
             <div class="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-xs hover:shadow-sm transition-shadow">
-                <button 
+                <button
                     @click="showPrefix = !showPrefix"
                     class="w-full px-4 py-3 flex justify-between items-center hover:bg-slate-50 transition-colors cursor-pointer"
                 >
@@ -76,9 +76,9 @@
                     <span class="text-slate-400 transition-transform" :class="{'rotate-180': showPrefix}">▼</span>
                 </button>
                 <div v-show="showPrefix" class="p-4 border-t border-slate-100">
-                    <textarea 
-                        v-model="promptPrefix" 
-                        rows="10" 
+                    <textarea
+                        v-model="promptPrefix"
+                        rows="10"
                         class="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                     ></textarea>
                 </div>
@@ -86,13 +86,13 @@
 
             <div class="p-5 border border-slate-200 rounded-xl bg-white shadow-xs">
                 <label class="text-sm font-semibold text-slate-700 block mb-3">Image Input (Optional - Not stored in URL)</label>
-                
+
                 <div class="flex flex-col gap-4">
                     <div class="flex gap-2 items-center">
                         <div class="relative flex-1">
-                            <input 
-                                type="text" 
-                                v-model="imageUrl" 
+                            <input
+                                type="text"
+                                v-model="imageUrl"
                                 @input="imagePreview = imageUrl"
                                 placeholder="Paste Image URL or use drop zone below..."
                                 class="w-full border border-slate-300 rounded-lg pl-3 pr-8 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
@@ -103,7 +103,7 @@
                         </div>
                     </div>
 
-                    <div 
+                    <div
                         class="relative h-48 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center cursor-pointer overflow-hidden group drag-overlay"
                         :class="isDragging ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50/50'"
                         @dragenter.prevent="isDragging = true"
@@ -111,11 +111,11 @@
                         @dragleave.prevent="isDragging = false"
                         @drop.prevent="handleDrop"
                     >
-                        <input 
-                            type="file" 
-                            ref="fileInput" 
-                            @change="handleFileUpload" 
-                            accept="image/*" 
+                        <input
+                            type="file"
+                            ref="fileInput"
+                            @change="handleFileUpload"
+                            accept="image/*"
                             class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                         >
 
@@ -152,8 +152,8 @@
                         {{ generationTime }}s
                     </span>
                 </div>
-                <button 
-                    v-if="result" 
+                <button
+                    v-if="result"
                     @click="copyResult"
                     class="text-xs bg-slate-200 hover:bg-slate-300 px-2 py-1 rounded transition-colors cursor-pointer shadow-xs active:scale-95"
                 >
@@ -166,7 +166,7 @@
                     <p>Output will appear here...</p>
                     <p class="text-[10px] mt-2 opacity-50 uppercase tracking-tighter">Press ⌘ + Enter to Run</p>
                 </div>
-                
+
                 <div v-if="loading" class="flex flex-col gap-4">
                     <div class="flex gap-1">
                         <span class="animate-bounce inline-block">.</span>
@@ -195,7 +195,7 @@ createApp({
         const promptPrefix = ref('');
         const imageUrl = ref('');
         const imagePreview = ref(null);
-        
+
         // UI State
         const showPrefix = ref(false);
         const result = ref('');
@@ -224,7 +224,7 @@ createApp({
             // Read from fragment (part after #)
             const hash = window.location.hash.substring(1);
             if (!hash) return;
-            
+
             const params = new URLSearchParams(hash);
             if (params.get('k')) apiKey.value = params.get('k');
             if (params.get('m')) model.value = params.get('m');
@@ -269,7 +269,7 @@ createApp({
                 error.value = "Error: Please enter an OpenRouter API Key.";
                 return;
             }
-            
+
             loading.value = true;
             error.value = null;
             result.value = '';
@@ -296,7 +296,7 @@ createApp({
                     body: JSON.stringify({
                         model: model.value,
                         messages: messages,
-                        reasoning: { effort: reasoningEffort.value }
+                        reasoning: { enabled: reasoningEffort.value !== "none", effort: reasoningEffort.value }
                     })
                 });
 
@@ -330,7 +330,7 @@ createApp({
             window.addEventListener('keydown', handleKeyDown);
             // Listen for hash changes if the user pastes a new link manually
             window.addEventListener('hashchange', urlToState);
-            
+
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
                 document.body.addEventListener(ev, e => e.preventDefault(), false);
             });
@@ -342,8 +342,8 @@ createApp({
         });
 
         return {
-            apiKey, model, reasoningEffort, userPrompt, promptPrefix, 
-            imageUrl, imagePreview, showPrefix, result, loading, error, 
+            apiKey, model, reasoningEffort, userPrompt, promptPrefix,
+            imageUrl, imagePreview, showPrefix, result, loading, error,
             copied, isDragging, fileInput, generationTime,
             handleFileUpload, handleDrop, clearImage, sendRequest, copyResult
         };
