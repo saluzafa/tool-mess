@@ -123,6 +123,13 @@
             </div>
 
             <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-semibold text-slate-700">Photo Style Prefix</label>
+                <select v-model="photoStyle" class="w-full border border-slate-300 rounded-xl p-3 bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-shadow hover:shadow-sm">
+                    <option v-for="style in photoStyleOptions" :key="style.value" :value="style.value">{{ style.label }}</option>
+                </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
                 <label class="text-sm font-semibold text-slate-700">Character Description (optional)</label>
                 <textarea
                     v-model="characterDescription"
@@ -253,6 +260,7 @@ createApp({
         const apiKey = ref('');
         const model = ref('qwen/qwen3-vl-235b-a22b-thinking');
         const reasoningEffort = ref('none');
+        const photoStyle = ref('none');
         const characterDescription = ref('');
         const userPrompt = ref('');
         const promptPrefix = ref('');
@@ -265,10 +273,31 @@ createApp({
         const showPrefix = ref(false);
         const generationTime = ref(null);
 
+        const photoStyleOptions = [
+            { label: "None (Custom)", value: "none" },
+            { label: "Amateur Phone Photo", value: "A blurry phone photo of " },
+            { label: "Amateur Candid", value: "An amateur candid photo of " },
+            { label: "Grainy Mobile Upload", value: "A grainy mobile upload of " },
+            { label: "Shaky Handheld Snap", value: "A shaky handheld snap of " },
+            { label: "Low-Res Social Media Post", value: "A low-resolution social media post of " },
+            { label: "Vertical Smartphone Picture", value: "A vertical smartphone picture of " },
+            { label: "2005 Digital Camera", value: "A 2005 digital camera photo of " },
+            { label: "Disposable Camera Shot", value: "A disposable camera shot of " },
+            { label: "35mm Point-and-Shoot", value: "A 35mm point-and-shoot photo of " },
+            { label: "Overexposed Polaroid", value: "An overexposed Polaroid of " },
+            { label: "Grainy CCTV Still", value: "A grainy CCTV still of " },
+            { label: "High-Flash Amateur", value: "A high-flash amateur photo of " },
+            { label: "Poorly Lit Basement", value: "A poorly lit basement photo of " },
+            { label: "Backlit Hazy Candid", value: "A backlit, hazy candid of " },
+            { label: "Accidental Mirror Selfie", value: "An accidental mirror selfie of " },
+            { label: "Wide-Angle Cluttered Shot", value: "A wide-angle, cluttered shot of " },
+            { label: "Centered Unposed Snapshot", value: "A centered, unposed snapshot of " }
+        ];
+
         const history = ref(JSON.parse(localStorage.getItem('or_studio_history') || '[]'));
 
         let toastTimeout = null;
-        let dragCounter = 0; // To prevent flickering on child elements
+        let dragCounter = 0;
 
         const triggerErrorToast = (msg) => {
             error.value = msg;
@@ -281,7 +310,7 @@ createApp({
 
         const stateToUrl = () => {
             const params = new URLSearchParams({
-                k: apiKey.value, m: model.value, r: reasoningEffort.value,
+                k: apiKey.value, m: model.value, r: reasoningEffort.value, ps: photoStyle.value,
                 cd: characterDescription.value, up: userPrompt.value, pp: promptPrefix.value, res: result.value
             });
             window.history.replaceState(null, '', '#' + params.toString());
@@ -294,13 +323,14 @@ createApp({
             if (params.get('k')) apiKey.value = params.get('k');
             if (params.get('m')) model.value = params.get('m');
             if (params.get('r')) reasoningEffort.value = params.get('r');
+            if (params.get('ps')) photoStyle.value = params.get('ps');
             if (params.get('cd')) characterDescription.value = params.get('cd');
             if (params.get('up')) userPrompt.value = params.get('up');
             if (params.get('pp')) promptPrefix.value = params.get('pp');
             if (params.get('res')) result.value = params.get('res');
         };
 
-        watch([apiKey, model, reasoningEffort, characterDescription, userPrompt, promptPrefix, result], stateToUrl);
+        watch([apiKey, model, reasoningEffort, photoStyle, characterDescription, userPrompt, promptPrefix, result], stateToUrl);
 
         const addToHistory = (resContent) => {
             const entry = {
@@ -412,7 +442,6 @@ createApp({
 
                 const content = data.choices[0].message.content;
                 userPrompt.value = content;
-                // Chain to main generation
                 setTimeout(() => { sendRequest(); }, 100);
             } catch (err) {
                 triggerErrorToast("Auto-describe error: " + err.message);
@@ -436,8 +465,14 @@ createApp({
             const messages = [];
             if (promptPrefix.value) messages.push({ role: "system", content: promptPrefix.value.trim() });
 
-            const combinedPrompt = characterDescription.value
-                ? `${characterDescription.value}\n\n${userPrompt.value}`
+            const style = photoStyle.value === 'none' ? '' : photoStyle.value;
+            const character = characterDescription.value.trim();
+
+            // Prepend style to character description
+            const combinedCharacter = (style + character).trim();
+
+            const combinedPrompt = combinedCharacter
+                ? `${combinedCharacter}\n\n${userPrompt.value}`
                 : userPrompt.value;
 
             const userMessageContent = [{ type: "text", text: combinedPrompt.trim() }];
@@ -490,8 +525,6 @@ createApp({
             urlToState();
             window.addEventListener('keydown', handleKeyDown);
             window.addEventListener('hashchange', urlToState);
-
-            // Global Drag & Drop Listeners
             window.addEventListener('dragenter', handleGlobalDragEnter);
             window.addEventListener('dragover', (e) => e.preventDefault());
             window.addEventListener('dragleave', handleGlobalDragLeave);
@@ -508,7 +541,7 @@ createApp({
         });
 
         return {
-            apiKey, model, reasoningEffort, characterDescription, userPrompt, promptPrefix,
+            apiKey, model, reasoningEffort, photoStyle, photoStyleOptions, characterDescription, userPrompt, promptPrefix,
             showPrefix, result, loading, error, showErrorToast,
             copied, isGlobalDragging, generationTime, history,
             sendRequest, copyResult,
