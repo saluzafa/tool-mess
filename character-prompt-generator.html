@@ -17,6 +17,10 @@
         .slide-fade-enter-from { transform: translateX(20px); opacity: 0; }
         .slide-fade-leave-to { transform: translateX(20px); opacity: 0; }
 
+        /* Added Fade Transition */
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+
         @keyframes shrink {
             from { width: 100%; }
             to { width: 0%; }
@@ -29,6 +33,21 @@
 <body class="bg-slate-50 font-sans text-slate-900">
 
 <div id="app" v-cloak class="min-h-screen flex flex-col relative">
+
+    <transition name="fade">
+        <div v-if="loading" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-xs">
+            <div class="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 border border-slate-200">
+                <div class="relative">
+                    <div class="w-12 h-12 border-4 border-slate-100 rounded-full"></div>
+                    <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0"></div>
+                </div>
+                <div class="text-center">
+                    <p class="text-slate-900 font-bold">Generating Response</p>
+                    <p class="text-slate-500 text-xs mt-1 uppercase tracking-widest font-medium">Please wait</p>
+                </div>
+            </div>
+        </div>
+    </transition>
 
     <transition name="slide-fade">
         <div v-if="showErrorToast" class="fixed top-6 right-6 z-50 flex flex-col bg-red-600 text-white rounded-xl shadow-2xl max-w-md border border-red-500 overflow-hidden">
@@ -131,7 +150,7 @@
             </div>
 
             <div class="p-5 border border-slate-200 rounded-xl bg-white shadow-xs">
-                <label class="text-sm font-semibold text-slate-700 block mb-3">Image Input (Optional - Not stored in URL)</label>
+                <label class="text-sm font-semibold text-slate-700 block mb-3">Image Input (Auto-describes on upload)</label>
                 <div class="flex flex-col gap-4">
                     <div
                         class="relative h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center cursor-pointer overflow-hidden group drag-overlay"
@@ -144,6 +163,7 @@
                         <input type="file" ref="fileInput" @change="handleFileUpload" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
                         <div v-if="!imagePreview" class="pointer-events-none flex flex-col items-center gap-2 p-4 z-10">
                             <p class="text-sm font-medium text-slate-700">Click or drag image</p>
+                            <p class="text-[10px] text-slate-400 uppercase tracking-tight font-bold">Triggers automatic description</p>
                         </div>
                         <div v-else class="absolute inset-0 w-full h-full p-2 z-10 flex items-center justify-center bg-slate-50">
                             <img :src="imagePreview" class="max-w-full max-h-full object-contain rounded-lg">
@@ -249,7 +269,7 @@ createApp({
         const apiKey = ref('');
         const model = ref('qwen/qwen3-vl-235b-a22b-thinking');
         const reasoningEffort = ref('none');
-        const characterDescription = ref(''); // New Ref
+        const characterDescription = ref('');
         const userPrompt = ref('');
         const promptPrefix = ref('');
         const imageUrl = ref('');
@@ -292,7 +312,7 @@ createApp({
             if (params.get('k')) apiKey.value = params.get('k');
             if (params.get('m')) model.value = params.get('m');
             if (params.get('r')) reasoningEffort.value = params.get('r');
-            if (params.get('cd')) characterDescription.value = params.get('cd'); // Sync from URL
+            if (params.get('cd')) characterDescription.value = params.get('cd');
             if (params.get('up')) userPrompt.value = params.get('up');
             if (params.get('pp')) promptPrefix.value = params.get('pp');
             if (params.get('res')) result.value = params.get('res');
@@ -304,7 +324,7 @@ createApp({
             const entry = {
                 id: Date.now(), timestamp: new Date().toISOString(),
                 model: model.value, reasoningEffort: reasoningEffort.value,
-                characterDescription: characterDescription.value, // Save to history
+                characterDescription: characterDescription.value,
                 userPrompt: userPrompt.value, promptPrefix: promptPrefix.value,
                 result: resContent
             };
@@ -341,6 +361,7 @@ createApp({
              reader.onload = (f) => {
                  imagePreview.value = f.target.result;
                  imageUrl.value = f.target.result;
+                 describeImage(f.target.result);
              };
              reader.readAsDataURL(file);
         };
@@ -348,6 +369,59 @@ createApp({
         const handleFileUpload = (e) => processFile(e.target.files[0]);
         const handleDrop = (e) => { isDragging.value = false; processFile(e.dataTransfer.files[0]); };
         const clearImage = () => { imageUrl.value = ''; imagePreview.value = null; };
+
+        const describeImage = async (dataUrl) => {
+            if (!apiKey.value) {
+                triggerErrorToast("Please enter an API Key first to allow auto-description.");
+                return;
+            }
+
+            loading.value = true;
+            error.value = null;
+            result.value = '';
+            generationTime.value = null;
+
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${apiKey.value}`,
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": window.location.href,
+                        "X-Title": "OpenRouter Studio"
+                    },
+                    body: JSON.stringify({
+                        model: "qwen/qwen3-vl-32b-instruct",
+                        messages: [
+                            {
+                                role: "user",
+                                content: [
+                                    { type: "text", text: "Describe the image reference. You must exclude the following from your description: hair color, eyes color, piercing, jewelry, watches, bracelets, fitness tracker, rings" },
+                                    { type: "image_url", image_url: { url: dataUrl } }
+                                ]
+                            }
+                        ]
+                    })
+                });
+
+                const data = await response.json();
+                const endTime = performance.now();
+                generationTime.value = ((endTime - startTime) / 1000).toFixed(2);
+
+                if (data.error) throw new Error(data.error.message || "Auto-describe Failed");
+
+                const content = data.choices[0].message.content;
+                result.value = content;
+                userPrompt.value = content;
+                setTimeout(() => { sendRequest(); }, 0);
+            } catch (err) {
+                triggerErrorToast("Auto-describe error: " + err.message);
+                result.value = '';
+                loading.value = false; // Important to reset if chain fails early
+            }
+        };
 
         const sendRequest = async () => {
             if (!apiKey.value) {
@@ -364,13 +438,11 @@ createApp({
             const messages = [];
             if (promptPrefix.value) messages.push({ role: "system", content: promptPrefix.value.trim() });
 
-            // CONCATENATION LOGIC HERE: Combine Character Description and User Prompt
             const combinedPrompt = characterDescription.value
                 ? `${characterDescription.value}\n\n${userPrompt.value}`
                 : userPrompt.value;
 
             const userMessageContent = [{ type: "text", text: combinedPrompt.trim() }];
-            if (imageUrl.value) userMessageContent.push({ type: "image_url", image_url: { url: imageUrl.value } });
             messages.push({ role: "user", content: userMessageContent });
 
             const startTime = performance.now();
