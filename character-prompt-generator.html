@@ -10,14 +10,12 @@
         [v-cloak] { display: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        .drag-overlay { transition: background-color 0.2s ease, border-color 0.2s ease; }
 
         .slide-fade-enter-active { transition: all 0.3s ease-out; }
         .slide-fade-leave-active { transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1); }
         .slide-fade-enter-from { transform: translateX(20px); opacity: 0; }
         .slide-fade-leave-to { transform: translateX(20px); opacity: 0; }
 
-        /* Added Fade Transition */
         .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
         .fade-enter-from, .fade-leave-to { opacity: 0; }
 
@@ -32,7 +30,19 @@
 </head>
 <body class="bg-slate-50 font-sans text-slate-900">
 
-<div id="app" v-cloak class="min-h-screen flex flex-col relative">
+<div id="app" v-cloak class="min-h-screen flex flex-col relative" @dragover.prevent @drop.prevent>
+
+    <transition name="fade">
+        <div v-if="isGlobalDragging" class="fixed inset-0 z-[200] bg-blue-600/90 backdrop-blur-md flex flex-col items-center justify-center text-white p-6 border-[12px] border-dashed border-white/30 m-4 rounded-3xl pointer-events-none">
+            <div class="bg-white text-blue-600 p-8 rounded-full mb-6 shadow-2xl scale-110">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            </div>
+            <h2 class="text-4xl font-black mb-2 tracking-tight">Drop to Analyze</h2>
+            <p class="text-blue-100 text-xl font-medium">Release to automatically describe this image</p>
+        </div>
+    </transition>
 
     <transition name="fade">
         <div v-if="loading" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-xs">
@@ -126,7 +136,7 @@
                 <label class="text-sm font-semibold text-slate-700">User Prompt</label>
                 <textarea
                     v-model="userPrompt"
-                    rows="8"
+                    rows="12"
                     placeholder="Enter your instructions here..."
                     class="w-full border border-slate-300 rounded-xl p-4 bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-shadow hover:shadow-sm"
                 ></textarea>
@@ -149,32 +159,6 @@
                 </div>
             </div>
 
-            <div class="p-5 border border-slate-200 rounded-xl bg-white shadow-xs">
-                <label class="text-sm font-semibold text-slate-700 block mb-3">Image Input (Auto-describes on upload)</label>
-                <div class="flex flex-col gap-4">
-                    <div
-                        class="relative h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center cursor-pointer overflow-hidden group drag-overlay"
-                        :class="isDragging ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50/50'"
-                        @dragenter.prevent="isDragging = true"
-                        @dragover.prevent="isDragging = true"
-                        @dragleave.prevent="isDragging = false"
-                        @drop.prevent="handleDrop"
-                    >
-                        <input type="file" ref="fileInput" @change="handleFileUpload" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
-                        <div v-if="!imagePreview" class="pointer-events-none flex flex-col items-center gap-2 p-4 z-10">
-                            <p class="text-sm font-medium text-slate-700">Click or drag image</p>
-                            <p class="text-[10px] text-slate-400 uppercase tracking-tight font-bold">Triggers automatic description</p>
-                        </div>
-                        <div v-else class="absolute inset-0 w-full h-full p-2 z-10 flex items-center justify-center bg-slate-50">
-                            <img :src="imagePreview" class="max-w-full max-h-full object-contain rounded-lg">
-                            <button @click.stop="clearImage" class="absolute top-2 right-2 bg-white/80 rounded-full p-1 shadow-sm hover:bg-white transition-colors pointer-events-auto">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div class="mt-4 flex flex-col gap-4">
                 <div class="flex items-center justify-between">
                     <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest">History</h2>
@@ -182,7 +166,7 @@
                 </div>
 
                 <div v-if="history.length === 0" class="border border-dashed border-slate-200 rounded-xl p-8 text-center">
-                    <p class="text-sm text-slate-400 italic">No previous generations yet.</p>
+                    <p class="text-sm text-slate-400 italic">No previous generations yet. Drag an image here to start by describing it.</p>
                 </div>
 
                 <div class="grid grid-cols-1 gap-3">
@@ -272,22 +256,20 @@ createApp({
         const characterDescription = ref('');
         const userPrompt = ref('');
         const promptPrefix = ref('');
-        const imageUrl = ref('');
-        const imagePreview = ref(null);
-
-        const showPrefix = ref(false);
         const result = ref('');
         const loading = ref(false);
         const error = ref(null);
         const showErrorToast = ref(false);
         const copied = ref(false);
-        const isDragging = ref(false);
-        const fileInput = ref(null);
+        const isGlobalDragging = ref(false);
+        const showPrefix = ref(false);
         const generationTime = ref(null);
 
         const history = ref(JSON.parse(localStorage.getItem('or_studio_history') || '[]'));
 
         let toastTimeout = null;
+        let dragCounter = 0; // To prevent flickering on child elements
+
         const triggerErrorToast = (msg) => {
             error.value = msg;
             showErrorToast.value = true;
@@ -359,16 +341,32 @@ createApp({
              if (!file || !file.type.startsWith('image/')) return;
              const reader = new FileReader();
              reader.onload = (f) => {
-                 imagePreview.value = f.target.result;
-                 imageUrl.value = f.target.result;
                  describeImage(f.target.result);
              };
              reader.readAsDataURL(file);
         };
 
-        const handleFileUpload = (e) => processFile(e.target.files[0]);
-        const handleDrop = (e) => { isDragging.value = false; processFile(e.dataTransfer.files[0]); };
-        const clearImage = () => { imageUrl.value = ''; imagePreview.value = null; };
+        const handleGlobalDragEnter = (e) => {
+            e.preventDefault();
+            dragCounter++;
+            isGlobalDragging.value = true;
+        };
+
+        const handleGlobalDragLeave = (e) => {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter === 0) {
+                isGlobalDragging.value = false;
+            }
+        };
+
+        const handleGlobalDrop = (e) => {
+            e.preventDefault();
+            isGlobalDragging.value = false;
+            dragCounter = 0;
+            const file = e.dataTransfer.files[0];
+            processFile(file);
+        };
 
         const describeImage = async (dataUrl) => {
             if (!apiKey.value) {
@@ -413,13 +411,13 @@ createApp({
                 if (data.error) throw new Error(data.error.message || "Auto-describe Failed");
 
                 const content = data.choices[0].message.content;
-                result.value = content;
                 userPrompt.value = content;
-                setTimeout(() => { sendRequest(); }, 0);
+                // Chain to main generation
+                setTimeout(() => { sendRequest(); }, 100);
             } catch (err) {
                 triggerErrorToast("Auto-describe error: " + err.message);
                 result.value = '';
-                loading.value = false; // Important to reset if chain fails early
+                loading.value = false;
             }
         };
 
@@ -492,22 +490,28 @@ createApp({
             urlToState();
             window.addEventListener('keydown', handleKeyDown);
             window.addEventListener('hashchange', urlToState);
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
-                document.body.addEventListener(ev, e => e.preventDefault(), false);
-            });
+
+            // Global Drag & Drop Listeners
+            window.addEventListener('dragenter', handleGlobalDragEnter);
+            window.addEventListener('dragover', (e) => e.preventDefault());
+            window.addEventListener('dragleave', handleGlobalDragLeave);
+            window.addEventListener('drop', handleGlobalDrop);
         });
 
         onUnmounted(() => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('hashchange', urlToState);
+            window.removeEventListener('dragenter', handleGlobalDragEnter);
+            window.removeEventListener('dragleave', handleGlobalDragLeave);
+            window.removeEventListener('drop', handleGlobalDrop);
             if (toastTimeout) clearTimeout(toastTimeout);
         });
 
         return {
             apiKey, model, reasoningEffort, characterDescription, userPrompt, promptPrefix,
-            imageUrl, imagePreview, showPrefix, result, loading, error, showErrorToast,
-            copied, isDragging, fileInput, generationTime, history,
-            handleFileUpload, handleDrop, clearImage, sendRequest, copyResult,
+            showPrefix, result, loading, error, showErrorToast,
+            copied, isGlobalDragging, generationTime, history,
+            sendRequest, copyResult,
             openHistoryItem, clearHistory, formatDate
         };
     }
