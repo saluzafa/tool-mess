@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vue Diff Checker (Debounced)</title>
+  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.1.0/diff.min.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans">
+
+<div id="app" class="max-w-6xl mx-auto p-6">
+  <header class="mb-8 flex justify-between items-end">
+    <div>
+      <h1 class="text-3xl font-bold text-indigo-600">Text Diff Checker</h1>
+      <p class="text-gray-500">2-second debounce active</p>
+    </div>
+
+    <div class="text-sm font-medium px-3 py-1 rounded-full transition-all duration-300"
+         :class="isSyncing ? 'bg-amber-100 text-amber-700 animate-pulse' : 'bg-green-100 text-green-700'">
+      {{ isSyncing ? '● Changes detected... waiting' : '● Up to date' }}
+    </div>
+  </header>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+    <div class="flex flex-col">
+      <label class="mb-2 font-semibold text-gray-700">Original Text</label>
+      <textarea
+          v-model="text1"
+          class="w-full h-64 p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-mono text-sm"
+          placeholder="Paste original text here..."></textarea>
+    </div>
+    <div class="flex flex-col">
+      <label class="mb-2 font-semibold text-gray-700">Changed Text</label>
+      <textarea
+          v-model="text2"
+          class="w-full h-64 p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-mono text-sm"
+          placeholder="Paste modified text here..."></textarea>
+    </div>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+    <div class="bg-gray-100 px-6 py-3 border-b border-gray-200 flex justify-between items-center">
+      <h2 class="font-bold text-gray-700">Difference Result</h2>
+      <span v-if="isSyncing" class="text-xs text-gray-400">Processing...</span>
+    </div>
+    <div class="p-6 whitespace-pre-wrap font-mono text-sm leading-relaxed min-h-[100px]">
+      <template v-for="(part, index) in diffResult" :key="index">
+                    <span
+                        :class="{
+                            'bg-green-100 text-green-800 border-b-2 border-green-400': part.added,
+                            'bg-red-100 text-red-800 line-through decoration-red-500': part.removed,
+                            'text-gray-600': !part.added && !part.removed
+                        }"
+                    >{{ part.value }}</span>
+      </template>
+    </div>
+  </div>
+</div>
+
+<script>
+  const { createApp, ref, watch } = Vue;
+
+  createApp({
+    setup() {
+      const text1 = ref('Hello world\nThis is the original text.');
+      const text2 = ref('Hello beautiful world\nThis is the modified version.');
+      const diffResult = ref([]);
+      const isSyncing = ref(false);
+      let debounceTimer = null;
+
+      // Function to run the diff logic
+      const runDiff = () => {
+        diffResult.value = Diff.diffChars(text1.value, text2.value);
+        isSyncing.value = false;
+      };
+
+      // Watch both inputs
+      watch([text1, text2], () => {
+        isSyncing.value = true;
+
+        // Clear the previous timer if user keeps typing
+        if (debounceTimer) clearTimeout(debounceTimer);
+
+        // Set a new timer for 2 seconds (2000ms)
+        debounceTimer = setTimeout(() => {
+          runDiff();
+        }, 500);
+      }, { immediate: true }); // immediate: true runs it once on page load
+
+      return {
+        text1,
+        text2,
+        diffResult,
+        isSyncing
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>
