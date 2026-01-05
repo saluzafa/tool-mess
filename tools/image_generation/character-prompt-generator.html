@@ -40,7 +40,40 @@
                 </svg>
             </div>
             <h2 class="text-4xl font-black mb-2 tracking-tight">Drop to Analyze</h2>
-            <p class="text-blue-100 text-xl font-medium">Release to automatically describe this image</p>
+            <p class="text-blue-100 text-xl font-medium">Release to automatically describe this image using Vision</p>
+        </div>
+    </transition>
+
+    <transition name="fade">
+        <div v-if="showVisionModal" class="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+            <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Vision Configuration
+                    </h3>
+                    <button @click="showVisionModal = false" class="text-slate-400 hover:text-slate-600 cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <div class="p-6 flex flex-col gap-5">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Vision Model ID</label>
+                        <input type="text" v-model="visionModel" placeholder="e.g. qwen/qwen3-vl-30b-a3b-instruct" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Description Prompt</label>
+                        <p class="text-[11px] text-slate-400 mb-1">Instructions given to the model when an image is dropped.</p>
+                        <textarea v-model="visionPrompt" rows="5" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"></textarea>
+                    </div>
+                </div>
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                    <button @click="showVisionModal = false" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors cursor-pointer">Save & Close</button>
+                </div>
+            </div>
         </div>
     </transition>
 
@@ -92,15 +125,18 @@
                 placeholder="OpenRouter API Key"
                 class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none w-48"
             >
-            <div class="flex items-center gap-2 border border-slate-300 rounded-lg px-2 py-1 bg-slate-50">
-                <span class="text-[10px] font-bold text-slate-400 uppercase">Vision</span>
-                <input
-                    type="text"
-                    v-model="visionModel"
-                    placeholder="Vision Model ID"
-                    class="text-xs font-mono outline-none bg-transparent w-48 text-slate-600"
-                >
-            </div>
+
+            <button
+                @click="showVisionModal = true"
+                class="flex items-center gap-2 border border-slate-300 rounded-lg px-3 py-1.5 bg-slate-50 hover:bg-slate-100 transition-colors text-xs font-bold text-slate-600 uppercase cursor-pointer"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Vision Settings
+            </button>
+
             <button
                 @click="sendRequest"
                 :disabled="loading"
@@ -268,7 +304,9 @@ createApp({
     setup() {
         const apiKey = ref('');
         const model = ref('qwen/qwen3-vl-235b-a22b-thinking');
-        const visionModel = ref('qwen/qwen3-vl-30b-a3b-instruct'); // New Vision Model ref
+        const visionModel = ref('qwen/qwen3-vl-30b-a3b-instruct');
+        const visionPrompt = ref("Describe the image reference. You must exclude the following from your description: hair color, eyes color, piercing, jewelry, watches, bracelets, fitness tracker, rings");
+        const showVisionModal = ref(false);
         const reasoningEffort = ref('none');
         const photoStyle = ref('none');
         const characterDescription = ref('');
@@ -320,14 +358,15 @@ createApp({
 
         const stateToUrl = () => {
             const params = new URLSearchParams({
-                k: apiKey.value, 
-                m: model.value, 
-                vm: visionModel.value, // Added to URL
-                r: reasoningEffort.value, 
+                k: apiKey.value,
+                m: model.value,
+                vm: visionModel.value,
+                vp: visionPrompt.value, // Added Vision Prompt to URL
+                r: reasoningEffort.value,
                 ps: photoStyle.value,
-                cd: characterDescription.value, 
-                up: userPrompt.value, 
-                pp: promptPrefix.value, 
+                cd: characterDescription.value,
+                up: userPrompt.value,
+                pp: promptPrefix.value,
                 res: result.value
             });
             window.history.replaceState(null, '', '#' + params.toString());
@@ -339,7 +378,8 @@ createApp({
             const params = new URLSearchParams(hash);
             if (params.get('k')) apiKey.value = params.get('k');
             if (params.get('m')) model.value = params.get('m');
-            if (params.get('vm')) visionModel.value = params.get('vm'); // Restored from URL
+            if (params.get('vm')) visionModel.value = params.get('vm');
+            if (params.get('vp')) visionPrompt.value = params.get('vp'); // Restored
             if (params.get('r')) reasoningEffort.value = params.get('r');
             if (params.get('ps')) photoStyle.value = params.get('ps');
             if (params.get('cd')) characterDescription.value = params.get('cd');
@@ -348,7 +388,7 @@ createApp({
             if (params.get('res')) result.value = params.get('res');
         };
 
-        watch([apiKey, model, visionModel, reasoningEffort, photoStyle, characterDescription, userPrompt, promptPrefix, result], stateToUrl);
+        watch([apiKey, model, visionModel, visionPrompt, reasoningEffort, photoStyle, characterDescription, userPrompt, promptPrefix, result], stateToUrl);
 
         const addToHistory = (resContent) => {
             const entry = {
@@ -439,12 +479,12 @@ createApp({
                         "X-Title": "OpenRouter Studio"
                     },
                     body: JSON.stringify({
-                        model: visionModel.value || "qwen/qwen3-vl-30b-a3b-instruct", // Used dynamic Vision Model
+                        model: visionModel.value || "qwen/qwen3-vl-30b-a3b-instruct",
                         messages: [
                             {
                                 role: "user",
                                 content: [
-                                    { type: "text", text: "Describe the image reference. You must exclude the following from your description: hair color, eyes color, piercing, jewelry, watches, bracelets, fitness tracker, rings" },
+                                    { type: "text", text: visionPrompt.value || "Describe this image." },
                                     { type: "image_url", image_url: { url: dataUrl } }
                                 ]
                             }
@@ -559,7 +599,7 @@ createApp({
         });
 
         return {
-            apiKey, model, visionModel, reasoningEffort, photoStyle, photoStyleOptions, characterDescription, userPrompt, promptPrefix,
+            apiKey, model, visionModel, visionPrompt, showVisionModal, reasoningEffort, photoStyle, photoStyleOptions, characterDescription, userPrompt, promptPrefix,
             showPrefix, result, loading, error, showErrorToast,
             copied, isGlobalDragging, generationTime, history,
             sendRequest, copyResult,
