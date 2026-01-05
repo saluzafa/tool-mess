@@ -85,13 +85,22 @@
         <h1 class="text-xl font-bold bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
             Character Prompt Generator
         </h1>
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3">
             <input
                 type="password"
                 v-model="apiKey"
                 placeholder="OpenRouter API Key"
-                class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none w-64"
+                class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none w-48"
             >
+            <div class="flex items-center gap-2 border border-slate-300 rounded-lg px-2 py-1 bg-slate-50">
+                <span class="text-[10px] font-bold text-slate-400 uppercase">Vision</span>
+                <input
+                    type="text"
+                    v-model="visionModel"
+                    placeholder="Vision Model ID"
+                    class="text-xs font-mono outline-none bg-transparent w-48 text-slate-600"
+                >
+            </div>
             <button
                 @click="sendRequest"
                 :disabled="loading"
@@ -259,6 +268,7 @@ createApp({
     setup() {
         const apiKey = ref('');
         const model = ref('qwen/qwen3-vl-235b-a22b-thinking');
+        const visionModel = ref('qwen/qwen3-vl-30b-a3b-instruct'); // New Vision Model ref
         const reasoningEffort = ref('none');
         const photoStyle = ref('none');
         const characterDescription = ref('');
@@ -310,8 +320,15 @@ createApp({
 
         const stateToUrl = () => {
             const params = new URLSearchParams({
-                k: apiKey.value, m: model.value, r: reasoningEffort.value, ps: photoStyle.value,
-                cd: characterDescription.value, up: userPrompt.value, pp: promptPrefix.value, res: result.value
+                k: apiKey.value, 
+                m: model.value, 
+                vm: visionModel.value, // Added to URL
+                r: reasoningEffort.value, 
+                ps: photoStyle.value,
+                cd: characterDescription.value, 
+                up: userPrompt.value, 
+                pp: promptPrefix.value, 
+                res: result.value
             });
             window.history.replaceState(null, '', '#' + params.toString());
         };
@@ -322,6 +339,7 @@ createApp({
             const params = new URLSearchParams(hash);
             if (params.get('k')) apiKey.value = params.get('k');
             if (params.get('m')) model.value = params.get('m');
+            if (params.get('vm')) visionModel.value = params.get('vm'); // Restored from URL
             if (params.get('r')) reasoningEffort.value = params.get('r');
             if (params.get('ps')) photoStyle.value = params.get('ps');
             if (params.get('cd')) characterDescription.value = params.get('cd');
@@ -330,7 +348,7 @@ createApp({
             if (params.get('res')) result.value = params.get('res');
         };
 
-        watch([apiKey, model, reasoningEffort, photoStyle, characterDescription, userPrompt, promptPrefix, result], stateToUrl);
+        watch([apiKey, model, visionModel, reasoningEffort, photoStyle, characterDescription, userPrompt, promptPrefix, result], stateToUrl);
 
         const addToHistory = (resContent) => {
             const entry = {
@@ -421,7 +439,7 @@ createApp({
                         "X-Title": "OpenRouter Studio"
                     },
                     body: JSON.stringify({
-                        model: "qwen/qwen3-vl-32b-instruct",
+                        model: visionModel.value || "qwen/qwen3-vl-30b-a3b-instruct", // Used dynamic Vision Model
                         messages: [
                             {
                                 role: "user",
@@ -469,7 +487,6 @@ createApp({
             const style = photoStyle.value === 'none' ? '' : photoStyle.value;
             const character = characterDescription.value.trim();
 
-            // Prepend style to character description
             const combinedCharacter = (style + character).trim();
 
             const combinedPrompt = combinedCharacter
@@ -542,7 +559,7 @@ createApp({
         });
 
         return {
-            apiKey, model, reasoningEffort, photoStyle, photoStyleOptions, characterDescription, userPrompt, promptPrefix,
+            apiKey, model, visionModel, reasoningEffort, photoStyle, photoStyleOptions, characterDescription, userPrompt, promptPrefix,
             showPrefix, result, loading, error, showErrorToast,
             copied, isGlobalDragging, generationTime, history,
             sendRequest, copyResult,
