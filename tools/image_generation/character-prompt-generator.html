@@ -908,8 +908,8 @@ createApp({
             if (!refineInput.value || refining.value) return;
             refining.value = true;
 
-            const systemPrompt = "You are a prompt engineering expert. You will receive an original image generation prompt and a request for refactoring. Your task is to output the UPDATED prompt and NOTHING ELSE. Do not explain your changes.";
-            const userMsg = `ORIGINAL PROMPT:\n${result.value}\n\nREFACTORING REQUEST:\n${refineInput.value}`;
+            const systemPrompt = "You are a prompt engineering expert. You will receive an original image generation prompt and a request for refinement. Your task is to output the UPDATED prompt and NOTHING ELSE. Do not explain your changes.";
+            const userMsg = `ORIGINAL PROMPT:\n${result.value}\n\nREFINEMENT REQUEST:\n${refineInput.value}`;
 
             try {
                 const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
