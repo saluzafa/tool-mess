@@ -90,16 +90,19 @@
         <div v-if="showRefineModal" class="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4">
             <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
                 <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <div>
+                    <div class="flex-1">
                         <h3 class="font-bold text-slate-800 flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                             Refine Generation
                         </h3>
-                        <p class="text-[10px] text-slate-400 uppercase font-bold tracking-tight mt-0.5">Using: {{ model }}</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <label class="text-[10px] text-slate-400 uppercase font-bold tracking-tight whitespace-nowrap">Model:</label>
+                            <input type="text" v-model="refinementModel" class="text-[10px] font-mono border-b border-slate-200 outline-none focus:border-indigo-400 text-indigo-600 bg-transparent w-full max-w-[280px]" placeholder="e.g. google/gemini-2.0-flash-exp">
+                        </div>
                     </div>
-                    <button @click="showRefineModal = false" class="text-slate-400 hover:text-slate-600 cursor-pointer">
+                    <button @click="showRefineModal = false" class="text-slate-400 hover:text-slate-600 cursor-pointer ml-4">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
@@ -458,7 +461,7 @@ createApp({
     setup() {
         // Core State
         const apiKey = ref('');
-        const model = ref('qwen/qwen3-vl-235b-a22b-thinking');
+        const model = ref('x-ai/grok-4.1-fast');
 
         // Vision State
         const visionModel = ref('qwen/qwen3-vl-30b-a3b-instruct');
@@ -489,12 +492,8 @@ createApp({
         const loadingSuggestions = ref(false);
 
         // Dynamic Suggestions State
-        const refinementPresets = ref([
-            // "Cinematic lighting",
-            // "Switch to 35mm film",
-            // "Change setting to night",
-            // "Add bokeh background",
-        ]);
+        const refinementModel = ref('google/gemini-3-flash-preview');
+        const refinementPresets = ref([]);
         const defaultRefinementPresets = [
             "Make it more dramatic",
             "Add motion blur",
@@ -553,7 +552,8 @@ createApp({
                 reasoningEffort: reasoningEffort.value,
                 photoStyle: photoStyle.value,
                 characterDescription: characterDescription.value,
-                promptPrefix: promptPrefix.value
+                promptPrefix: promptPrefix.value,
+                refinementModel: refinementModel.value
             };
 
             const index = presets.value.findIndex(p => p.name === name);
@@ -580,6 +580,7 @@ createApp({
                 photoStyle.value = preset.photoStyle || 'none';
                 characterDescription.value = preset.characterDescription || '';
                 promptPrefix.value = preset.promptPrefix || '';
+                refinementModel.value = preset.refinementModel || 'google/gemini-3-flash-preview';
             }
         };
 
@@ -644,7 +645,8 @@ createApp({
                 up: userPrompt.value,
                 pp: promptPrefix.value,
                 res: result.value,
-                sp: selectedPresetName.value
+                sp: selectedPresetName.value,
+                rm: refinementModel.value
             });
             window.history.replaceState(null, '', '#' + params.toString());
         };
@@ -665,9 +667,10 @@ createApp({
             if (params.get('pp')) promptPrefix.value = params.get('pp');
             if (params.get('res')) result.value = params.get('res');
             if (params.get('sp')) selectedPresetName.value = params.get('sp');
+            if (params.get('rm')) refinementModel.value = params.get('rm');
         };
 
-        watch([apiKey, model, visionModel, visionReasoningEffort, visionPrompt, reasoningEffort, photoStyle, characterDescription, userPrompt, promptPrefix, result, selectedPresetName], stateToUrl);
+        watch([apiKey, model, visionModel, visionReasoningEffort, visionPrompt, reasoningEffort, photoStyle, characterDescription, userPrompt, promptPrefix, result, selectedPresetName, refinementModel], stateToUrl);
 
         const addToHistory = (resContent) => {
             const entry = {
@@ -870,7 +873,7 @@ createApp({
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        model: "google/gemini-3-flash-preview", // Using a fast/cheap model for suggestions
+                        model: refinementModel.value,
                         messages: [
                             { role: "system", content: systemPrompt },
                             { role: "user", content: `CURRENT PROMPT: ${result.value}` }
@@ -882,7 +885,6 @@ createApp({
                 const data = await response.json();
                 const content = data.choices[0].message.content;
 
-                // Try to extract array from JSON content
                 const parsed = JSON.parse(content);
                 const suggestions = Array.isArray(parsed) ? parsed : Object.values(parsed)[0];
 
@@ -891,7 +893,6 @@ createApp({
                 }
             } catch (err) {
                 console.error("Suggestion generation failed", err);
-                // Fallback to defaults on error
                 refinementPresets.value = ["Dramatic lighting", "Change colors", "Add details", "Wide shot", "Vintage style"];
             } finally {
                 loadingSuggestions.value = false;
@@ -918,7 +919,7 @@ createApp({
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        model: model.value,
+                        model: refinementModel.value,
                         messages: [
                             { role: "system", content: systemPrompt },
                             { role: "user", content: userMsg }
@@ -979,7 +980,7 @@ createApp({
             savePreset, loadPreset, exportPresets, importPresets, triggerImport,
             sendRequest, copyToClipboard,
             openHistoryItem, clearHistory, formatDate,
-            showRefineModal, refineInput, refineResult, refining, refinementPresets,
+            showRefineModal, refinementModel, refineInput, refineResult, refining, refinementPresets,
             defaultRefinementPresets, sendRefineRequest, applyRefinePreset,
             applyRefinedToMain, openRefineModal, generateDynamicRefinements,
             loadingSuggestions
