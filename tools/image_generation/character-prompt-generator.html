@@ -93,7 +93,7 @@
     </transition>
 
     <transition name="slide-fade">
-        <div v-if="showErrorToast" class="fixed top-6 right-6 z-50 flex flex-col bg-red-600 text-white rounded-xl shadow-2xl max-w-md border border-red-500 overflow-hidden">
+        <div v-if="showErrorToast" class="fixed top-6 right-6 z-250 flex flex-col bg-red-600 text-white rounded-xl shadow-2xl max-w-md border border-red-500 overflow-hidden">
             <div class="flex items-center gap-3 px-4 py-3">
                 <div class="bg-white/20 p-1.5 rounded-lg">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -114,16 +114,46 @@
         </div>
     </transition>
 
-    <header class="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-        <h1 class="text-xl font-bold bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            Character Prompt Generator
-        </h1>
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex flex-wrap gap-4 justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-6">
+            <h1 class="text-xl font-bold bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent shrink-0">
+                Prompt Studio
+            </h1>
+
+            <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <select v-model="selectedPresetName" @change="loadPreset" class="text-xs font-bold text-slate-600 bg-transparent px-2 py-1.5 outline-none min-w-[140px] cursor-pointer">
+                    <option value="">Select Preset...</option>
+                    <option v-for="p in presets" :key="p.name" :value="p.name">{{ p.name }}</option>
+                </select>
+                <button @click="savePreset" class="p-1.5 hover:bg-white rounded-lg text-slate-500 hover:text-blue-600 transition-all cursor-pointer shadow-xs active:scale-95 flex items-center" title="Save Current as Preset">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    <span class="text-xs">Save Current as Preset</span>
+                </button>
+                <div class="w-px h-4 bg-slate-300 mx-1"></div>
+                <button @click="exportPresets" class="p-1.5 hover:bg-white rounded-lg text-slate-500 hover:text-indigo-600 transition-all cursor-pointer shadow-xs flex items-center" title="Export Presets (JSON)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span class="text-xs">Export JSON</span>
+                </button>
+                <button @click="triggerImport" class="p-1.5 hover:bg-white rounded-lg text-slate-500 hover:text-indigo-600 transition-all cursor-pointer shadow-xs flex items-center" title="Import Presets (JSON)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    <span class="text-xs">Import JSON</span>
+                </button>
+                <input type="file" ref="fileInput" @change="importPresets" class="hidden" accept=".json">
+            </div>
+        </div>
+
         <div class="flex items-center gap-3">
             <input
                 type="password"
                 v-model="apiKey"
                 placeholder="OpenRouter API Key"
-                class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none w-48"
+                class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none w-48 bg-slate-50"
             >
 
             <button
@@ -134,7 +164,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                Vision Settings
+                Vision
             </button>
 
             <button
@@ -149,9 +179,9 @@
     </header>
 
     <main class="flex-1 p-6 gap-6 grid grid-cols-12 max-w-[1600px] mx-auto w-full">
-        <div class="col-span-8 flex flex-col gap-6">
+        <div class="col-span-12 lg:col-span-8 flex flex-col gap-6">
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="flex flex-col gap-1.5">
                     <label class="text-sm font-semibold text-slate-700">Model ID</label>
                     <input v-model="model" type="text" class="w-full border border-slate-300 rounded-xl p-3 bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-shadow hover:shadow-sm">
@@ -188,7 +218,7 @@
                 <label class="text-sm font-semibold text-slate-700">User Prompt</label>
                 <textarea
                     v-model="userPrompt"
-                    rows="12"
+                    rows="10"
                     placeholder="Enter your instructions here..."
                     class="w-full border border-slate-300 rounded-xl p-4 bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-shadow hover:shadow-sm"
                 ></textarea>
@@ -245,7 +275,7 @@
             </div>
         </div>
 
-        <div class="col-span-4 flex flex-col h-[calc(100vh-140px)] sticky top-24">
+        <div class="col-span-12 lg:col-span-4 flex flex-col h-[calc(100vh-140px)] sticky top-24">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
                     <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Result</label>
@@ -302,6 +332,7 @@ const { createApp, ref, watch, onMounted, onUnmounted } = Vue;
 
 createApp({
     setup() {
+        // Core State
         const apiKey = ref('');
         const model = ref('qwen/qwen3-vl-235b-a22b-thinking');
         const visionModel = ref('qwen/qwen3-vl-30b-a3b-instruct');
@@ -320,6 +351,11 @@ createApp({
         const isGlobalDragging = ref(false);
         const showPrefix = ref(false);
         const generationTime = ref(null);
+
+        // Presets State
+        const presets = ref(JSON.parse(localStorage.getItem('or_presets') || '[]'));
+        const selectedPresetName = ref('');
+        const fileInput = ref(null);
 
         const photoStyleOptions = [
             { label: "None (Custom)", value: "none" },
@@ -348,6 +384,89 @@ createApp({
         let toastTimeout = null;
         let dragCounter = 0;
 
+        // Preset Functions
+        const savePreset = () => {
+            const name = prompt("Enter a name for this preset:", selectedPresetName.value || "New Preset");
+            if (!name) return;
+
+            const newPreset = {
+                name,
+                apiKey: apiKey.value,
+                model: model.value,
+                visionModel: visionModel.value,
+                visionPrompt: visionPrompt.value,
+                reasoningEffort: reasoningEffort.value,
+                photoStyle: photoStyle.value,
+                characterDescription: characterDescription.value,
+                promptPrefix: promptPrefix.value
+            };
+
+            const index = presets.value.findIndex(p => p.name === name);
+            if (index !== -1) {
+                presets.value[index] = newPreset;
+            } else {
+                presets.value.push(newPreset);
+            }
+
+            localStorage.setItem('or_presets', JSON.stringify(presets.value));
+            selectedPresetName.value = name;
+        };
+
+        const loadPreset = () => {
+            if (!selectedPresetName.value) return;
+            const preset = presets.value.find(p => p.name === selectedPresetName.value);
+            if (preset) {
+                apiKey.value = preset.apiKey || '';
+                model.value = preset.model || '';
+                visionModel.value = preset.visionModel || '';
+                visionPrompt.value = preset.visionPrompt || '';
+                reasoningEffort.value = preset.reasoningEffort || 'none';
+                photoStyle.value = preset.photoStyle || 'none';
+                characterDescription.value = preset.characterDescription || '';
+                promptPrefix.value = preset.promptPrefix || '';
+            }
+        };
+
+        const exportPresets = () => {
+            const dataStr = JSON.stringify(presets.value, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `presets_backup_${new Date().toISOString().slice(0,10)}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        };
+
+        const triggerImport = () => fileInput.value.click();
+
+        const importPresets = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        if (confirm(`Import ${imported.length} presets? This will merge with your existing ones.`)) {
+                            // Merge logic (avoiding exact name duplicates)
+                            imported.forEach(imp => {
+                                const idx = presets.value.findIndex(p => p.name === imp.name);
+                                if (idx !== -1) presets.value[idx] = imp;
+                                else presets.value.push(imp);
+                            });
+                            localStorage.setItem('or_presets', JSON.stringify(presets.value));
+                        }
+                    }
+                } catch (err) {
+                    triggerErrorToast("Invalid JSON file.");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset input
+        };
+
+        // Utility & API Functions
         const triggerErrorToast = (msg) => {
             error.value = msg;
             showErrorToast.value = true;
@@ -362,7 +481,7 @@ createApp({
                 k: apiKey.value,
                 m: model.value,
                 vm: visionModel.value,
-                vp: visionPrompt.value, // Added Vision Prompt to URL
+                vp: visionPrompt.value,
                 r: reasoningEffort.value,
                 ps: photoStyle.value,
                 cd: characterDescription.value,
@@ -380,7 +499,7 @@ createApp({
             if (params.get('k')) apiKey.value = params.get('k');
             if (params.get('m')) model.value = params.get('m');
             if (params.get('vm')) visionModel.value = params.get('vm');
-            if (params.get('vp')) visionPrompt.value = params.get('vp'); // Restored
+            if (params.get('vp')) visionPrompt.value = params.get('vp');
             if (params.get('r')) reasoningEffort.value = params.get('r');
             if (params.get('ps')) photoStyle.value = params.get('ps');
             if (params.get('cd')) characterDescription.value = params.get('cd');
@@ -489,8 +608,7 @@ createApp({
                                     { type: "image_url", image_url: { url: dataUrl } }
                                 ]
                             }
-                        ],
-                        reasoning: { enabled: true, effort: "low" }
+                        ]
                     })
                 });
 
@@ -527,7 +645,6 @@ createApp({
 
             const style = photoStyle.value === 'none' ? '' : photoStyle.value;
             const character = characterDescription.value.trim();
-
             const combinedCharacter = (style + character).trim();
 
             const combinedPrompt = combinedCharacter
@@ -603,6 +720,8 @@ createApp({
             apiKey, model, visionModel, visionPrompt, showVisionModal, reasoningEffort, photoStyle, photoStyleOptions, characterDescription, userPrompt, promptPrefix,
             showPrefix, result, loading, error, showErrorToast,
             copied, isGlobalDragging, generationTime, history,
+            presets, selectedPresetName, fileInput,
+            savePreset, loadPreset, exportPresets, importPresets, triggerImport,
             sendRequest, copyResult,
             openHistoryItem, clearHistory, formatDate
         };
