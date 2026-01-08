@@ -6,6 +6,7 @@
     <title>Character Prompt Generator - Studio</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
         [v-cloak] { display: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
@@ -88,8 +89,8 @@
 
     <transition name="fade">
         <div v-if="showRefineModal" class="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4">
-            <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <div class="bg-white w-full max-w-[75vw] rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 mb-4">
                     <div class="flex-1">
                         <h3 class="font-bold text-slate-800 flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -99,7 +100,7 @@
                         </h3>
                         <div class="flex items-center gap-2 mt-1">
                             <label class="text-[10px] text-slate-400 uppercase font-bold tracking-tight whitespace-nowrap">Model:</label>
-                            <input type="text" v-model="refinementModel" class="text-[10px] font-mono border-b border-slate-200 outline-none focus:border-indigo-400 text-indigo-600 bg-transparent w-full max-w-[280px]" placeholder="e.g. google/gemini-2.0-flash-exp">
+                            <input type="text" v-model="refinementModel" class="text-[10px] font-mono border-b border-slate-200 outline-none focus:border-indigo-400 text-indigo-600 bg-transparent w-full max-w-[280px]" placeholder="e.g. google/gemini-3-flash-preview">
                         </div>
                     </div>
                     <button @click="showRefineModal = false" class="text-slate-400 hover:text-slate-600 cursor-pointer ml-4">
@@ -107,53 +108,155 @@
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar">
-                    <div class="flex flex-col gap-3">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Dynamic Suggestions</label>
-                            <button @click="generateDynamicRefinements" class="text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer flex items-center gap-1" :disabled="loadingSuggestions">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" :class="{'animate-spin': loadingSuggestions}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                                Regenerate
-                            </button>
-                        </div>
+                <div class="grid grid-cols-12 gap-4 max-h-full overflow-y-auto">
+                  <div class="col-span-6">
+                    <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar" ref="refineModalContainer">
+                      <div class="flex flex-col gap-3">
+                          <div class="flex items-center justify-between cursor-pointer" @click="showDynamicSection = !showDynamicSection">
+                              <label class="text-xs font-bold text-slate-500 uppercase tracking-widest cursor-pointer flex items-center gap-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 transition-transform" :class="{'rotate-90': showDynamicSection}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7" />
+                                  </svg>
+                                  Dynamic Suggestions
+                              </label>
+                              <button @click.stop="generateDynamicRefinements" class="text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer flex items-center gap-1" :disabled="loadingSuggestions">
+                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" :class="{'animate-spin': loadingSuggestions}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                  Regenerate
+                              </button>
+                          </div>
 
-                        <div class="flex flex-wrap gap-2">
-                            <div v-if="loadingSuggestions" class="flex gap-2">
-                                <div v-for="i in 3" class="h-8 w-24 bg-slate-100 animate-pulse rounded-full"></div>
-                            </div>
-                            <div v-else-if="refinementPresets.length === 0" class="text-slate-400">
-                              <button @click="generateDynamicRefinements" class="text-sm font-bold text-indigo-50 hover:underline cursor-pointer flex items-center gap-1 bg-indigo-600 py-1 px-2 rounded-lg" :disabled="loadingSuggestions">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" :class="{'animate-spin': loadingSuggestions}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                                Generate
-                            </button>
-                            </div>
-                            <button v-else v-for="suggestion in refinementPresets"
-                                    @click="applyRefinePreset(suggestion)"
-                                    class="text-[11px] font-bold px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all cursor-pointer">
-                                {{ suggestion }}
-                            </button>
-                        </div>
+                          <div v-show="showDynamicSection" class="flex flex-col gap-3 transition-all">
+                              <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 mb-1">
+                                  <div class="mb-2">
+                                    <div class="flex flex-col gap-1 flex-1">
+                                      <label class="text-[10px] font-bold text-slate-400 uppercase">Suggestion Kind</label>
+                                      <select v-model="suggestionType" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                                          <option value="General Enhancements">General Enhancements</option>
+                                          <option value="Lighting Adjustments">Lighting Adjustments</option>
+                                          <option value="Shadow">Shadow</option>
+                                          <option value="Angle/View Changes">Angle/View Changes</option>
+                                          <option value="Color/Filter Effects">Color/Filter Effects</option>
+                                          <option value="Clothing/Fashion Changes">Clothing/Fashion Changes</option>
+                                          <option value="Custom">Custom...</option>
+                                      </select>
+                                    </div>
+                                    <div v-if="suggestionType === 'Custom'" class="flex flex-col gap-1 flex-1">
+                                        <label class="text-[10px] font-bold text-slate-400 uppercase">Custom Focus</label>
+                                        <input type="text" v-model="customSuggestionType" placeholder="e.g. Cinematic Weather..." class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                                    </div>
+                                  </div>
+                                  <div class="text-right">
+                                    <button @click="generateDynamicRefinements" class="text-sm font-bold text-indigo-50 hover:underline cursor-pointer flex items-center gap-1 bg-indigo-600 py-1 px-4 rounded-lg" :disabled="loadingSuggestions">
+                                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" :class="{'animate-spin': loadingSuggestions}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                      </svg>
+                                      Generate {{ suggestionType === 'Custom' ? (customSuggestionType || 'Custom') : suggestionType }}
+                                    </button>
+                                  </div>
+                              </div>
+
+                              <div class="flex flex-wrap gap-2">
+                                  <div v-if="loadingSuggestions" class="flex gap-2">
+                                      <div v-for="i in 3" class="h-8 w-24 bg-slate-100 animate-pulse rounded-full"></div>
+                                  </div>
+                                  <button v-else v-for="suggestion in refinementPresets"
+                                          @click="applyRefinePreset(suggestion)"
+                                          class="text-[11px] font-bold px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all cursor-pointer">
+                                      {{ suggestion }}
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div class="flex flex-col gap-3">
+                          <div class="flex items-center justify-between cursor-pointer" @click="showClothingSection = !showClothingSection">
+                              <label class="text-xs font-bold text-slate-500 uppercase tracking-widest cursor-pointer flex items-center gap-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 transition-transform" :class="{'rotate-90': showClothingSection}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7" />
+                                  </svg>
+                                  Clothes Changes
+                              </label>
+                              <button @click.stop="generateClothingSuggestions" class="text-[10px] font-bold text-emerald-600 hover:underline cursor-pointer flex items-center gap-1" :disabled="loadingClothing" v-if="clothingSuggestions.length > 0">
+                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" :class="{'animate-spin': loadingClothing}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                  Regenerate
+                              </button>
+                          </div>
+
+                          <div v-show="showClothingSection" class="flex flex-col gap-3 transition-all">
+                              <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 mb-1">
+                                <div class="mb-2">
+                                  <div class="flex flex-col gap-1 flex-1">
+                                      <label class="text-[10px] font-bold text-slate-400 uppercase">Style Category</label>
+                                      <select v-model="clothingStyle" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                          <option value="Casual">Casual</option>
+                                          <option value="Formal">Formal</option>
+                                          <option value="Sporty">Sporty</option>
+                                          <option value="Vintage">Vintage</option>
+                                          <option value="Sexy">Sexy</option>
+                                          <option value="Teasing">Teasing</option>
+                                          <option value="Very Tight Clothes">Very Tight Clothes</option>
+                                          <option value="Custom">Custom...</option>
+                                      </select>
+                                  </div>
+                                  <div v-if="clothingStyle === 'Custom'" class="flex flex-col gap-1 flex-1">
+                                      <label class="text-[10px] font-bold text-slate-400 uppercase">Custom Style</label>
+                                      <input type="text" v-model="customClothingStyle" placeholder="e.g. Cyberpunk, Goth..." class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                  </div>
+                                </div>
+
+                                <div class="text-right">
+                                  <button @click="generateClothingSuggestions" class="text-sm font-bold text-emerald-50 hover:underline cursor-pointer flex items-center gap-1 bg-emerald-600 py-1.5 px-4 rounded-lg shadow-sm" :disabled="loadingClothing">
+                                    <i class="fas fa-person-dress fa-fw"></i>
+                                    Generate Suggestions ({{ clothingStyle === 'Custom' ? (customClothingStyle || 'Custom') : clothingStyle }})
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div class="flex flex-wrap gap-2">
+                                  <div v-if="loadingClothing" class="flex gap-2">
+                                      <div v-for="i in 3" class="h-8 w-24 bg-slate-100 animate-pulse rounded-full"></div>
+                                  </div>
+                                  <button v-else v-for="suggestion in clothingSuggestions"
+                                          @click="applyRefinePreset(suggestion)"
+                                          class="text-[11px] font-bold px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-600 transition-all cursor-pointer">
+                                      {{ suggestion }}
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div class="flex flex-col gap-3">
+                          <div class="flex items-center justify-between cursor-pointer" @click="showBasicSection = !showBasicSection">
+                              <label class="text-xs font-bold text-slate-500 uppercase tracking-widest cursor-pointer flex items-center gap-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 transition-transform" :class="{'rotate-90': showBasicSection}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7" />
+                                  </svg>
+                                  Basic Suggestions
+                              </label>
+                          </div>
+
+                          <div v-show="showBasicSection" class="flex flex-wrap gap-2 transition-all">
+                              <button v-for="suggestion in defaultRefinementPresets"
+                                      @click="applyRefinePreset(suggestion)"
+                                      class="text-[11px] font-bold px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all cursor-pointer">
+                                  {{ suggestion }}
+                              </button>
+                          </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-span-6 space-y-4">
+                    <div class="flex flex-col gap-1.5 px-4">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Base Prompt to Refine</label>
+                        <textarea v-model="refineBasePrompt" rows="4" placeholder="Prompt to be refined" class="w-full border border-slate-300 rounded-xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none bg-slate-50 focus:bg-white transition-all"></textarea>
                     </div>
 
-                    <div class="flex flex-col gap-3">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Basic Suggestions</label>
-                        </div>
-
-                        <div class="flex flex-wrap gap-2">
-                            <button v-for="suggestion in defaultRefinementPresets"
-                                    @click="applyRefinePreset(suggestion)"
-                                    class="text-[11px] font-bold px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all cursor-pointer">
-                                {{ suggestion }}
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col gap-1.5">
+                    <div class="flex flex-col gap-1.5 px-4">
                         <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Instructions</label>
                         <div class="relative">
                             <textarea v-model="refineInput" rows="3" placeholder="What would you like to change? (e.g., 'Make it more cinematic', 'Change clothes to red')" class="w-full border border-slate-300 rounded-xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none bg-slate-50 focus:bg-white transition-all" @keydown.enter.exact.prevent="sendRefineRequest"></textarea>
@@ -166,7 +269,7 @@
                         </div>
                     </div>
 
-                    <div class="flex flex-col gap-1.5 flex-1">
+                    <div class="flex flex-col gap-1.5 px-4 flex-1" ref="refineResultTarget">
                         <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Refined Result</label>
                         <div class="flex-1 bg-slate-900 rounded-xl p-4 text-slate-200 font-mono text-sm border border-slate-800 min-h-[150px] relative">
                             <div v-if="!refining && refineResult" class="whitespace-pre-wrap leading-relaxed">{{ refineResult }}</div>
@@ -182,15 +285,13 @@
                             </button>
                         </div>
                     </div>
+                  </div>
                 </div>
 
                 <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
                     <p class="text-[10px] text-slate-400 italic max-w-xs">This process modifies the existing prompt while maintaining context.</p>
                     <div class="flex gap-3">
                         <button @click="showRefineModal = false" class="px-4 py-2 text-sm font-bold text-slate-600 hover:text-slate-800 cursor-pointer">Close</button>
-                        <button v-if="refineResult" @click="applyRefinedToMain" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl font-bold text-sm transition-colors cursor-pointer shadow-md">
-                            Use as New Result
-                        </button>
                     </div>
                 </div>
             </div>
@@ -286,6 +387,13 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
                 Vision
+            </button>
+
+            <button
+                @click="openRefineModal"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-sm active:scale-95"
+            >
+              Prompt Refiner
             </button>
 
             <button
@@ -455,13 +563,15 @@
 </div>
 
 <script>
-const { createApp, ref, watch, onMounted, onUnmounted } = Vue;
+const { createApp, ref, watch, onMounted, onUnmounted, nextTick } = Vue;
+
+const DEFAULT_MODEL = "google/gemini-3-flash-preview";
 
 createApp({
     setup() {
         // Core State
         const apiKey = ref('');
-        const model = ref('x-ai/grok-4.1-fast');
+        const model = ref(DEFAULT_MODEL);
 
         // Vision State
         const visionModel = ref('qwen/qwen3-vl-30b-a3b-instruct');
@@ -487,13 +597,28 @@ createApp({
         // Refine State
         const showRefineModal = ref(false);
         const refineInput = ref('');
+        const refineBasePrompt = ref('');
         const refineResult = ref('');
         const refining = ref(false);
         const loadingSuggestions = ref(false);
+        const showDynamicSection = ref(false);
+        const showClothingSection = ref(false);
+        const showBasicSection = ref(false);
+        const refineResultTarget = ref(null);
+        const refineModalContainer = ref(null);
+
+        // Clothing State
+        const clothingSuggestions = ref([]);
+        const loadingClothing = ref(false);
+        const clothingStyle = ref('Casual');
+        const customClothingStyle = ref('');
 
         // Dynamic Suggestions State
-        const refinementModel = ref('google/gemini-3-flash-preview');
+        const refinementModel = ref(DEFAULT_MODEL);
         const refinementPresets = ref([]);
+        const suggestionType = ref('General Enhancements');
+        const customSuggestionType = ref('');
+
         const defaultRefinementPresets = [
             "Make it more dramatic",
             "Add motion blur",
@@ -507,7 +632,7 @@ createApp({
             "Sunset window light",
             "Golden hour lighting",
             "Overcast outdoor lighting",
-            
+
         ];
 
         // Presets State
@@ -585,7 +710,7 @@ createApp({
                 photoStyle.value = preset.photoStyle || 'none';
                 characterDescription.value = preset.characterDescription || '';
                 promptPrefix.value = preset.promptPrefix || '';
-                refinementModel.value = preset.refinementModel || 'google/gemini-3-flash-preview';
+                refinementModel.value = preset.refinementModel || DEFAULT_MODEL;
             }
         };
 
@@ -861,14 +986,19 @@ createApp({
 
         // Dynamic Suggestion Logic
         const openRefineModal = () => {
+            showDynamicSection.value = false;
+            showClothingSection.value = false;
+            showBasicSection.value = false;
+            refineBasePrompt.value = result.value;
             showRefineModal.value = true;
         };
 
         const generateDynamicRefinements = async () => {
-            if (!apiKey.value || !result.value) return;
+            if (!apiKey.value || !refineBasePrompt.value) return;
             loadingSuggestions.value = true;
 
-            const systemPrompt = "You are a creative image prompt engineer. Based on the prompt provided, suggest 10 concise (2-4 words each) improvement or modification ideas like angle shift view, selfie positions, change lighting, etc. Return ONLY a JSON array of strings.\n\nOutput example:\n```json\n{\"ideas\":[\"Golden hour lighting\", \"Macro lens detail\", \"Top-down view selfie\"]}\n```";
+            const selectedType = suggestionType.value === 'Custom' ? (customSuggestionType.value || 'General') : suggestionType.value;
+            const systemPrompt = `You are a creative image prompt engineer. Based on the prompt provided, suggest 10 concise (2-4 words each) improvement or modification ideas strictly focusing on "${selectedType}". Return ONLY a JSON array of strings.\n\nOutput example:\n` + "```json\n{\"ideas\":[\"Idea 1\", \"Idea 2\", \"Idea 3\"]}\n```";
 
             try {
                 const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -881,14 +1011,13 @@ createApp({
                         model: refinementModel.value,
                         messages: [
                             { role: "system", content: systemPrompt },
-                            { role: "user", content: `CURRENT PROMPT:\n${result.value}` }
+                            { role: "user", content: `CURRENT PROMPT:\n${refineBasePrompt.value}` }
                         ],
                         response_format: { type: "json_object" }
                     })
                 });
 
                 const data = await response.json();
-                /** @type {string} */
                 const content = data.choices[0].message.content.replace(/```json|```/g, '').trim();
 
                 const parsed = JSON.parse(content);
@@ -905,9 +1034,56 @@ createApp({
             }
         };
 
+        const generateClothingSuggestions = async () => {
+            if (!apiKey.value || !refineBasePrompt.value) return;
+            loadingClothing.value = true;
+
+            const selectedStyle = clothingStyle.value === 'Custom' ? (customClothingStyle.value || 'unique') : clothingStyle.value;
+
+            const systemPrompt = `You are a fashion stylist and costume designer. Based on the prompt provided, suggest 10 specific and diverse clothing modifications strictly in a "${selectedStyle}" style (e.g., if style is formal, 'Wearing a sharp tailored tuxedo'; if style is sporty, 'Dressed in a sleek aerodynamic tracksuit'). Ensure suggestions focus strictly on apparel and outfit changes. Return ONLY a JSON array of strings.\n\nOutput example:\n` + "```json\n{\"ideas\":[\"Specific item 1\", \"Specific item 2\", \"Specific item 3\"]}\n```";
+
+            try {
+                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${apiKey.value}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: refinementModel.value,
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: `CURRENT PROMPT:\n${refineBasePrompt.value}` }
+                        ],
+                        response_format: { type: "json_object" }
+                    })
+                });
+
+                const data = await response.json();
+                const content = data.choices[0].message.content.replace(/```json|```/g, '').trim();
+
+                const parsed = JSON.parse(content);
+                const suggestions = Array.isArray(parsed) ? parsed : Object.values(parsed)[0];
+
+                if (Array.isArray(suggestions)) {
+                    clothingSuggestions.value = suggestions;
+                }
+            } catch (err) {
+                console.error("Clothing suggestion generation failed", err);
+                clothingSuggestions.value = ["Wearing a leather jacket", "Dressed in a suit", "Wearing a hoodie", "Wearing a summer dress"];
+            } finally {
+                loadingClothing.value = false;
+            }
+        };
+
         const applyRefinePreset = (val) => {
             refineInput.value = val;
             sendRefineRequest();
+            nextTick(() => {
+                if (refineResultTarget.value) {
+                    refineResultTarget.value.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
         };
 
         const sendRefineRequest = async () => {
@@ -915,7 +1091,7 @@ createApp({
             refining.value = true;
 
             const systemPrompt = "You are a prompt engineering expert. You will receive an original image generation prompt and a request for refinement. Your task is to output the UPDATED prompt and NOTHING ELSE. Do not explain your changes.";
-            const userMsg = `ORIGINAL PROMPT:\n${result.value}\n\nREFINEMENT REQUEST:\n${refineInput.value}`;
+            const userMsg = `ORIGINAL PROMPT:\n${refineBasePrompt.value}\n\nREFINEMENT REQUEST:\n${refineInput.value}`;
 
             try {
                 const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -987,10 +1163,12 @@ createApp({
             savePreset, loadPreset, exportPresets, importPresets, triggerImport,
             sendRequest, copyToClipboard,
             openHistoryItem, clearHistory, formatDate,
-            showRefineModal, refinementModel, refineInput, refineResult, refining, refinementPresets,
+            showRefineModal, refinementModel, refineInput, refineBasePrompt, refineResult, refining, refinementPresets,
             defaultRefinementPresets, sendRefineRequest, applyRefinePreset,
             applyRefinedToMain, openRefineModal, generateDynamicRefinements,
-            loadingSuggestions
+            loadingSuggestions, generateClothingSuggestions, clothingSuggestions, loadingClothing,
+            clothingStyle, customClothingStyle, showDynamicSection, showClothingSection, showBasicSection,
+            refineResultTarget, refineModalContainer, suggestionType, customSuggestionType
         };
     }
 }).mount('#app');
