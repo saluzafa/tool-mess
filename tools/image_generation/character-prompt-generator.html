@@ -148,7 +148,7 @@
                                     </div>
                                   </div>
                                   <div class="text-right">
-                                    <button @click="generateDynamicRefinements" class="text-sm font-bold text-indigo-50 hover:underline cursor-pointer flex items-center gap-1 bg-indigo-600 py-1 px-4 rounded-lg" :disabled="loadingSuggestions">
+                                    <button @click="generateDynamicRefinements" class="text-sm font-bold text-indigo-50 hover:underline cursor-pointer flex items-center gap-1 bg-indigo-600 py-1.5 px-4 rounded-lg shadow-sm" :disabled="loadingSuggestions">
                                       <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" :class="{'animate-spin': loadingSuggestions}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                       </svg>
@@ -998,7 +998,13 @@ createApp({
             loadingSuggestions.value = true;
 
             const selectedType = suggestionType.value === 'Custom' ? (customSuggestionType.value || 'General') : suggestionType.value;
-            const systemPrompt = `You are a creative image prompt engineer. Based on the prompt provided, suggest 10 concise (2-4 words each) improvement or modification ideas strictly focusing on "${selectedType}". Return ONLY a JSON array of strings.\n\nOutput example:\n` + "```json\n{\"ideas\":[\"Idea 1\", \"Idea 2\", \"Idea 3\"]}\n```";
+
+            const systemPrompt = `You are a creative image prompt engineer. Analyze the CURRENT PROMPT provided by the user.
+            Suggest 10 concise (2-4 words each) modification ideas strictly focusing on "${selectedType}" that would be contextually appropriate for the scene described in the CURRENT PROMPT.
+            Return ONLY a JSON array of strings under the key "ideas".
+
+            Output example:
+            { "ideas": ["Idea 1", "Idea 2", "Idea 3"] }`;
 
             try {
                 const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -1021,7 +1027,7 @@ createApp({
                 const content = data.choices[0].message.content.replace(/```json|```/g, '').trim();
 
                 const parsed = JSON.parse(content);
-                const suggestions = Array.isArray(parsed) ? parsed : Object.values(parsed)[0];
+                const suggestions = parsed.ideas || Object.values(parsed)[0];
 
                 if (Array.isArray(suggestions)) {
                     refinementPresets.value = suggestions;
@@ -1040,7 +1046,14 @@ createApp({
 
             const selectedStyle = clothingStyle.value === 'Custom' ? (customClothingStyle.value || 'unique') : clothingStyle.value;
 
-            const systemPrompt = `You are a fashion stylist and costume designer. Based on the prompt provided, suggest 10 specific and diverse clothing modifications strictly in a "${selectedStyle}" style (e.g., if style is formal, 'Wearing a sharp tailored tuxedo'; if style is sporty, 'Dressed in a sleek aerodynamic tracksuit'). Ensure suggestions focus strictly on apparel and outfit changes. Return ONLY a JSON array of strings.\n\nOutput example:\n` + "```json\n{\"ideas\":[\"Specific item 1\", \"Specific item 2\", \"Specific item 3\"]}\n```";
+            const systemPrompt = `You are a professional fashion stylist and costume designer.
+            Analyze the character and environment described in the CURRENT PROMPT.
+            Suggest 10 specific clothing modifications or complete outfits strictly in a "${selectedStyle}" style that fit the scene's context.
+            Suggestions should be concise (3-6 words).
+            Return ONLY a JSON array of strings under the key "ideas".
+
+            Output example:
+            { "ideas": ["Specific item 1", "Specific item 2", "Specific item 3"] }`;
 
             try {
                 const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -1063,7 +1076,7 @@ createApp({
                 const content = data.choices[0].message.content.replace(/```json|```/g, '').trim();
 
                 const parsed = JSON.parse(content);
-                const suggestions = Array.isArray(parsed) ? parsed : Object.values(parsed)[0];
+                const suggestions = parsed.ideas || Object.values(parsed)[0];
 
                 if (Array.isArray(suggestions)) {
                     clothingSuggestions.value = suggestions;
