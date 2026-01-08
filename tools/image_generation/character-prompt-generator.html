@@ -135,7 +135,7 @@
                                       <select v-model="suggestionType" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
                                           <option value="General Enhancements">General Enhancements</option>
                                           <option value="Lighting Adjustments">Lighting Adjustments</option>
-                                          <option value="Shadow">Shadow</option>
+                                          <option value="Shadow Lighting (e.g. night, evening)">Shadow Lighting (e.g. night, evening)</option>
                                           <option value="Angle/View Changes">Angle/View Changes</option>
                                           <option value="Color/Filter Effects">Color/Filter Effects</option>
                                           <option value="Clothing/Fashion Changes">Clothing/Fashion Changes</option>
@@ -221,7 +221,7 @@
                                       <div v-for="i in 3" class="h-8 w-24 bg-slate-100 animate-pulse rounded-full"></div>
                                   </div>
                                   <button v-else v-for="suggestion in clothingSuggestions"
-                                          @click="applyRefinePreset(suggestion)"
+                                          @click="applyRefinePreset('Change clothes to ' + suggestion)"
                                           class="text-[11px] font-bold px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-600 transition-all cursor-pointer">
                                       {{ suggestion }}
                                   </button>
@@ -1000,7 +1000,7 @@ createApp({
             const selectedType = suggestionType.value === 'Custom' ? (customSuggestionType.value || 'General') : suggestionType.value;
 
             const systemPrompt = `You are a creative image prompt engineer. Analyze the CURRENT PROMPT provided by the user.
-            Suggest 10 concise (2-4 words each) modification ideas strictly focusing on "${selectedType}" that would be contextually appropriate for the scene described in the CURRENT PROMPT.
+            Suggest 10 concise (4-6 words each) modification ideas strictly focusing on "${selectedType}" that would be contextually appropriate for the scene described in the CURRENT PROMPT.
             Return ONLY a JSON array of strings under the key "ideas".
 
             Output example:
@@ -1048,8 +1048,7 @@ createApp({
 
             const systemPrompt = `You are a professional fashion stylist and costume designer.
             Analyze the character and environment described in the CURRENT PROMPT.
-            Suggest 10 specific clothing modifications or complete outfits strictly in a "${selectedStyle}" style that fit the scene's context.
-            Suggestions should be concise (3-6 words).
+            Suggest 5 concise (8-16 words) complete outfits modification strictly in a "${selectedStyle}" style that fit the scene's context.
             Return ONLY a JSON array of strings under the key "ideas".
 
             Output example:
