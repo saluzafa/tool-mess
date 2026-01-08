@@ -271,6 +271,14 @@
 
                     <div class="flex flex-col gap-1.5 px-4 flex-1" ref="refineResultTarget">
                         <label class="text-xs font-bold text-slate-500 uppercase tracking-widest">Refined Result</label>
+                        <div class="text-right" v-if="!refining && refineResult">
+                          <button
+                            @click="refineBasePrompt = refineResult"
+                            class="text-sm font-bold text-indigo-600 hover:underline cursor-pointer flex items-center gap-1">
+                              <i class="fas fa-copy"></i>
+                              Use as Base Prompt
+                          </button>
+                        </div>
                         <div class="flex-1 bg-slate-900 rounded-xl p-4 text-slate-200 font-mono text-sm border border-slate-800 min-h-[150px] relative">
                             <div v-if="!refining && refineResult" class="whitespace-pre-wrap leading-relaxed">{{ refineResult }}</div>
                             <div v-else-if="refining" class="flex gap-1 items-center justify-center h-full opacity-50">
