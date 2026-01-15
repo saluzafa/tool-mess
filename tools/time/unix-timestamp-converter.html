@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unix Timestamp Converter</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@3/cdn.min.js"></script>
+</head>
+<body class="bg-slate-100 font-sans">
+
+<div id="app" class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+            <span class="text-lg font-semibold">Input:</span>
+            <button @click="setNow" class="px-4 py-1.5 text-sm font-semibold text-slate-800 bg-slate-200 rounded-md hover:bg-slate-300">Now</button>
+            <button @click="pasteFromClipboard" class="px-4 py-1.5 text-sm font-semibold text-slate-800 bg-slate-200 rounded-md hover:bg-slate-300">Clipboard</button>
+            <button @click="clearInput" class="px-4 py-1.5 text-sm font-semibold text-slate-800 bg-slate-200 rounded-md hover:bg-slate-300">Clear</button>
+            <button class="px-2 py-1.5 text-sm font-semibold text-slate-800 bg-slate-200 rounded-md hover:bg-slate-300">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+        </div>
+
+        <div class="flex items-center gap-2 mb-1">
+            <input type="text" v-model="inputValue" @input="handleInput" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select v-model="inputType" class="px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="s">Unix time (seconds since epoch)</option>
+                <option value="ms">Unix time (milliseconds since epoch)</option>
+            </select>
+        </div>
+        <p class="text-xs text-slate-500 mb-6">Tips: Mathematical operators + - * / are supported</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
+            <!-- Column 1 -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Local:</label>
+                <div class="flex items-center gap-2">
+                    <input type="text" :value="localTime" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md">
+                    <button @click="copyToClipboard(localTime)" class="p-2 text-slate-500 bg-slate-200 rounded-md hover:bg-slate-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Column 2 -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Day of year:</label>
+                <div class="flex items-center gap-2">
+                    <input type="text" :value="dayOfYear" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md">
+                    <button @click="copyToClipboard(dayOfYear)" class="p-2 text-slate-500 bg-slate-200 rounded-md hover:bg-slate-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Column 3 -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Other formats (local):</label>
+                <div class="flex items-center gap-2">
+                    <input type="text" :value="otherFormats.rfc2822" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md">
+                    <button @click="copyToClipboard(otherFormats.rfc2822)" class="p-2 text-slate-500 bg-slate-200 rounded-md hover:bg-slate-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Column 1 -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700">UTC (ISO 8601):</label>
+                <div class="flex items-center gap-2">
+                    <input type="text" :value="utcTime" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md">
+                    <button @click="copyToClipboard(utcTime)" class="p-2 text-slate-500 bg-slate-200 rounded-md hover:bg-slate-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Column 2 -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Week of year:</label>
+                <div class="flex items-center gap-2">
+                    <input type="text" :value="weekOfYear" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md">
+                    <button @click="copyToClipboard(weekOfYear)" class="p-2 text-slate-500 bg-slate-200 rounded-md hover:bg-slate-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+             <!-- Column 3 -->
+            <div>
+                 <div class="flex items-center gap-2 mt-6">
+                    <input type="text" :value="otherFormats.time" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md">
+                    <button @click="copyToClipboard(otherFormats.time)" class="p-2 text-slate-500 bg-slate-200 rounded-md hover:bg-slate-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Column 1 -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Relative:</label>
+                <div class="flex items-center gap-2">
+                    <input type="text" :value="relativeTime" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md">
+                    <button @click="copyToClipboard(relativeTime)" class="p-2 text-slate-500 bg-slate-200 rounded-md hover:bg-slate-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Column 2 -->
+             <div>
+                <label class="block text-sm font-medium text-slate-700">Is leap year?:</label>
+                <div class="flex items-center gap-2">
+                    <input type="text" :value="isLeap" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md">
+                    <button @click="copyToClipboard(isLeap)" class="p-2 text-slate-500 bg-slate-200 rounded-md hover:bg-slate-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <hr class="my-6" />
+
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="text-lg font-semibold">Other timezones:</span>
+                <select class="px-3 py-1.5 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    <option>Add timezone...</option>
+                </select>
+                <button class="px-4 py-1.5 text-sm font-semibold text-slate-800 bg-slate-200 rounded-md hover:bg-slate-300">Add</button>
+            </div>
+            <p class="text-sm text-slate-500 mt-2">(Pick a timezone to get started...)</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const inputValue = ref('');
+            const inputType = ref('s'); // 's' for seconds, 'ms' for milliseconds
+            const date = ref(new Date());
+
+            const handleInput = () => {
+                const parsed = parseInt(inputValue.value, 10);
+                if (!isNaN(parsed)) {
+                    if (inputType.value === 's') {
+                        date.value = new Date(parsed * 1000);
+                    } else {
+                        date.value = new Date(parsed);
+                    }
+                } else {
+                    // Try parsing date strings
+                    const parsedDate = dateFns.parse(inputValue.value, 'P p', new Date());
+                     if (dateFns.isValid(parsedDate)) {
+                        date.value = parsedDate;
+                    }
+                }
+            };
+
+            const setNow = () => {
+                const now = new Date();
+                if (inputType.value === 's') {
+                    inputValue.value = Math.floor(now.getTime() / 1000);
+                } else {
+                    inputValue.value = now.getTime();
+                }
+                handleInput();
+            };
+
+            onMounted(() => {
+                setNow();
+                setInterval(() => {
+                    if (inputValue.value === '') {
+                        // if input is empty, keep updating date to now to show relative time
+                        date.value = new Date();
+                    }
+                }, 1000)
+            });
+
+            const clearInput = () => {
+                inputValue.value = '';
+                date.value = new Date();
+            };
+
+            const pasteFromClipboard = async () => {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    inputValue.value = text;
+                    handleInput();
+                } catch (err) {
+                    console.error('Failed to read clipboard contents: ', err);
+                }
+            };
+
+            const copyToClipboard = (text) => {
+                navigator.clipboard.writeText(text).then(() => {
+                    // Maybe show a small notification/tooltip
+                    console.log('Copied!');
+                }).catch(err => {
+                    console.error('Failed to copy: ', err);
+                });
+            };
+
+            const localTime = computed(() => dateFns.format(date.value, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"));
+            const utcTime = computed(() => date.value.toISOString());
+            const relativeTime = computed(() => dateFns.formatDistanceToNow(date.value, { addSuffix: true }));
+            const dayOfYear = computed(() => dateFns.format(date.value, 'd'));
+            const weekOfYear = computed(() => dateFns.format(date.value, 'w'));
+            const isLeap = computed(() => dateFns.isLeapYear(date.value) ? 'Yes' : 'No');
+
+            const otherFormats = computed(() => {
+                return {
+                    rfc2822: dateFns.format(date.value, 'EEE, dd MMM yyyy HH:mm:ss xx'),
+                    time: dateFns.format(date.value, 'p'),
+                }
+            });
+
+            return {
+                inputValue,
+                inputType,
+                handleInput,
+                setNow,
+                clearInput,
+                pasteFromClipboard,
+                copyToClipboard,
+                localTime,
+                utcTime,
+                relativeTime,
+                dayOfYear,
+                weekOfYear,
+                isLeap,
+                otherFormats
+            };
+        }
+    }).mount('#app');
+</script>
+
+</body>
+</html>

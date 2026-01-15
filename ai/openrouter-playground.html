@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Playground | OpenRouter</title>
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        [v-cloak] { display: none; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
+        @keyframes pulse-amber {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse-slow { animation: pulse-amber 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+<div id="app" v-cloak class="flex flex-col h-screen overflow-hidden">
+    <header class="border-b border-slate-700 bg-slate-800 p-4 shadow-xl shrink-0">
+        <div class="max-w-full mx-auto flex flex-wrap items-center gap-4">
+            <h1 class="text-xl font-bold text-sky-400 mr-2 whitespace-nowrap">AI Playground</h1>
+
+            <div class="relative flex-1 min-w-[200px]">
+                <input
+                    type="text"
+                    v-model="modelSearch"
+                    @focus="showDropdown = true"
+                    @keydown.down.prevent="navigateDropdown(1)"
+                    @keydown.up.prevent="navigateDropdown(-1)"
+                    @keydown.enter.prevent="selectCurrentModel"
+                    placeholder="Search model..."
+                    class="w-full bg-slate-950 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm"
+                >
+                <div
+                    v-show="showDropdown && filteredModels.length"
+                    ref="dropdownContainer"
+                    class="absolute z-50 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl max-h-64 overflow-y-auto custom-scrollbar"
+                >
+                    <div
+                        v-for="(model, index) in filteredModels"
+                        :key="model.id"
+                        :ref="el => { if (index === selectedIndex) activeItem = el }"
+                        @mousedown="selectModel(model)"
+                        :class="['px-4 py-2 cursor-pointer border-b border-slate-700/50 hover:bg-sky-600', { 'bg-sky-700': index === selectedIndex }]"
+                    >
+                        <div class="font-medium text-sm">{{ model.name }}</div>
+                        <div class="text-[10px] text-slate-400 font-mono">{{ model.id }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <input
+                type="password"
+                v-model="apiKey"
+                @input="saveCurrentPresetToDisk"
+                placeholder="OpenRouter API Key"
+                class="bg-slate-950 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500 w-48 text-sm"
+            >
+
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-tighter">Stream</span>
+                <button
+                    @click="isStreaming = !isStreaming"
+                    :class="isStreaming ? 'bg-sky-500' : 'bg-slate-600'"
+                    class="relative inline-flex h-5 w-10 items-center rounded-full transition-colors"
+                >
+                    <span :class="isStreaming ? 'translate-x-5' : 'translate-x-1'" class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform"></span>
+                </button>
+            </div>
+
+            <button
+                @click="runInference"
+                :disabled="isLoading"
+                class="bg-sky-600 hover:bg-sky-500 disabled:bg-slate-700 px-6 py-2 rounded-lg font-bold transition-all shadow-lg active:scale-95 whitespace-nowrap"
+            >
+                {{ isLoading ? 'Running...' : 'Run' }}
+                <span class="ml-2 opacity-50 text-[10px] hidden sm:inline">⌘↵</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-hidden flex">
+
+        <aside class="w-64 border-r border-slate-700 bg-slate-800/50 flex flex-col shrink-0">
+            <div class="p-4 border-b border-slate-700 flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Presets</h2>
+
+                    <button
+                        @click="handleDirectoryAction"
+                        :class="[
+                            'text-[10px] font-bold px-2 py-1 rounded transition-colors flex items-center gap-1',
+                            needsPermission ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' :
+                            (directoryHandle ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400 hover:bg-sky-500/30')
+                        ]"
+                    >
+                        <span v-if="needsPermission" class="animate-pulse-slow">⚠️ Reconnect</span>
+                        <span v-else-if="directoryHandle">📁 Connected</span>
+                        <span v-else>📁 Connect Folder</span>
+                    </button>
+                </div>
+
+                <div v-if="needsPermission" class="text-[10px] bg-amber-900/20 border border-amber-500/30 p-2 rounded text-amber-200/80 leading-tight mb-1">
+                    Folder access expired. Click <strong>Reconnect</strong> to load your presets.
+                </div>
+
+                <button @click="createNewPreset" class="w-full bg-slate-700 hover:bg-slate-600 py-1.5 rounded text-xs font-bold transition-colors">
+                    + New Preset
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                <div
+                    v-for="preset in presets"
+                    :key="preset.id"
+                    @click="loadPreset(preset)"
+                    @dblclick="startRenaming(preset)"
+                    :class="['group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors', activePresetId === preset.id ? 'bg-sky-900/40 text-sky-100 ring-1 ring-sky-500/30' : 'hover:bg-slate-700/50 text-slate-400']"
+                >
+                    <div class="flex-1 min-w-0">
+                        <input
+                            v-if="preset.isEditing"
+                            v-model="preset.name"
+                            @blur="stopRenaming(preset)"
+                            @keydown.enter="stopRenaming(preset)"
+                            @click.stop
+                            ref="renameInput"
+                            class="w-full bg-slate-950 border border-sky-500 rounded px-1 text-sm outline-none"
+                        >
+                        <span v-else class="text-sm truncate block">{{ preset.name }}</span>
+                    </div>
+                    <button @click.stop="deletePreset(preset)" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 ml-2">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <section class="flex-1 grid grid-cols-12 overflow-hidden">
+            <div class="col-span-8 p-6 flex flex-col gap-6 border-r border-slate-700 overflow-y-auto custom-scrollbar">
+                <div class="flex flex-col h-[30%] min-h-[150px]">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">System Prompt</label>
+                        <div v-if="activePreset" class="text-[10px] font-bold text-sky-500/50 uppercase">
+                            {{ activePreset.name }}
+                        </div>
+                    </div>
+                    <textarea
+                        v-model="systemPrompt"
+                        class="flex-1 bg-slate-950 border border-slate-700 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-sky-500/50 resize-none font-mono text-sm leading-relaxed"
+                        placeholder="You are a helpful assistant..."
+                    ></textarea>
+                </div>
+
+                <div class="flex flex-col flex-1">
+                    <label class="text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-[0.2em]">User Message</label>
+                    <textarea
+                        v-model="userMessage"
+                        class="flex-1 bg-slate-950 border border-slate-700 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-sky-500/50 resize-none font-mono text-sm leading-relaxed"
+                        placeholder="Type your prompt here..."
+                    ></textarea>
+                </div>
+            </div>
+
+            <section class="col-span-4 p-6 bg-slate-950/50 overflow-y-auto custom-scrollbar flex flex-col">
+                <div class="flex justify-between items-center mb-4 shrink-0">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Response</label>
+                    <button
+                        v-if="response"
+                        @click="copyResponse"
+                        class="text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-sky-400 px-2 py-1 rounded border border-slate-700 transition-colors"
+                    >
+                        {{ copyStatus }}
+                    </button>
+                </div>
+
+                <div class="flex-1 relative">
+                    <div v-if="!response && !isLoading" class="text-slate-600 italic text-sm">Output will appear here...</div>
+                    <pre v-else class="whitespace-pre-wrap font-mono text-xs leading-6 text-sky-50 bg-slate-900/50 p-4 rounded-lg border border-slate-800 min-h-full"><code>{{ response }}</code><span v-if="isLoading" class="inline-block w-1.5 h-4 ml-1 bg-sky-500 animate-pulse align-middle"></span></pre>
+                </div>
+            </section>
+        </section>
+
+    </main>
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted, onUnmounted, watch, nextTick } = Vue;
+
+    const DB_NAME = 'AIPlaygroundDB';
+    const STORE_NAME = 'handles';
+    const KEY_NAME = 'lastDirectory';
+
+    const getDB = () => new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = () => request.result.createObjectStore(STORE_NAME);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+
+    const storeHandle = async (handle) => {
+        const db = await getDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(handle, KEY_NAME);
+    };
+
+    const getStoredHandle = async () => {
+        const db = await getDB();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        return new Promise((resolve) => {
+            const req = tx.objectStore(STORE_NAME).get(KEY_NAME);
+            req.onsuccess = () => resolve(req.result);
+        });
+    };
+
+    createApp({
+        setup() {
+            const apiKey = ref('');
+            const modelSearch = ref('openai/gpt-4o-mini');
+            const selectedModelId = ref('openai/gpt-4o-mini');
+            const systemPrompt = ref('');
+            const userMessage = ref('');
+            const isStreaming = ref(true);
+            const response = ref('');
+            const isLoading = ref(false);
+            const copyStatus = ref('COPY');
+
+            const presets = ref([]);
+            const activePresetId = ref(null);
+            const directoryHandle = ref(null);
+            const needsPermission = ref(false); // Tracking permission state
+
+            const showDropdown = ref(false);
+            const selectedIndex = ref(0);
+            const availableModels = ref([]);
+            const dropdownContainer = ref(null);
+            const activeItem = ref(null);
+            const renameInput = ref(null);
+
+            const activePreset = computed(() => presets.value.find(p => p.id === activePresetId.value));
+
+            // Combined logic: Connect new OR Re-authorize existing
+            const handleDirectoryAction = async () => {
+                try {
+                    if (needsPermission.value && directoryHandle.value) {
+                        // Re-authorize existing handle
+                        const opts = { mode: 'readwrite' };
+                        const status = await directoryHandle.value.requestPermission(opts);
+                        if (status === 'granted') {
+                            needsPermission.value = false;
+                            await scanDirectory();
+                        }
+                    } else {
+                        // Pick new handle
+                        const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                        directoryHandle.value = handle;
+                        await storeHandle(handle);
+                        needsPermission.value = false;
+                        await scanDirectory();
+                    }
+                } catch (e) {
+                    console.error("Directory access failed", e);
+                }
+            };
+
+            const scanDirectory = async () => {
+                if (!directoryHandle.value) return;
+
+                const options = { mode: 'readwrite' };
+                // Check current permission status
+                const perm = await directoryHandle.value.queryPermission(options);
+
+                if (perm !== 'granted') {
+                    // Browser requires a user gesture to requestPermission,
+                    // so we just show the alert/warning state in the UI.
+                    needsPermission.value = true;
+                    return;
+                }
+
+                needsPermission.value = false;
+                const foundPresets = [];
+
+                try {
+                    for await (const entry of directoryHandle.value.values()) {
+                        if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+                            const file = await entry.getFile();
+                            try {
+                                const content = JSON.parse(await file.text());
+                                if (content.id) {
+                                    content.isEditing = false;
+                                    content.fileName = entry.name;
+                                    foundPresets.push(content);
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                    if (foundPresets.length) {
+                        presets.value = foundPresets;
+                        const hashId = window.location.hash.slice(1);
+                        const presetFromHash = foundPresets.find(p => p.id === hashId);
+                        if (presetFromHash) {
+                            loadPreset(presetFromHash);
+                        } else if (!activePresetId.value) {
+                            loadPreset(foundPresets[0]);
+                        }
+                    }
+                } catch (err) {
+                    // This triggers if the handle is physically invalid or deleted
+                    console.error("Scanning failed", err);
+                    needsPermission.value = true;
+                }
+            };
+
+            const sanitizeFilename = (name) => {
+                return name.replace(/[\\/:*?"<>|]/g, '_').trim() || 'untitled';
+            };
+
+            const saveCurrentPresetToDisk = async () => {
+                if (!directoryHandle.value || !activePresetId.value || needsPermission.value) return;
+                const p = activePreset.value;
+
+                const dataToSave = {
+                    id: p.id,
+                    name: p.name,
+                    systemPrompt: systemPrompt.value,
+                    userMessage: userMessage.value,
+                    modelId: selectedModelId.value,
+                    apiKey: apiKey.value
+                };
+
+                try {
+                    const newFileName = `${sanitizeFilename(p.name)}.json`;
+
+                    // If the filename changed, delete the old one
+                    if (p.fileName && p.fileName !== newFileName) {
+                        try {
+                            await directoryHandle.value.removeEntry(p.fileName);
+                        } catch (e) {
+                            console.warn("Could not remove old file", e);
+                        }
+                    }
+
+                    const fileHandle = await directoryHandle.value.getFileHandle(newFileName, { create: true });
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(JSON.stringify(dataToSave, null, 2));
+                    await writable.close();
+                    p.fileName = newFileName;
+                } catch (e) {
+                    console.error("Save failed", e);
+                    // If saving fails due to permission, flag it
+                    if (e.name === 'NotAllowedError') needsPermission.value = true;
+                }
+            };
+
+            const createNewPreset = () => {
+                const newId = Date.now().toString();
+                const newPreset = {
+                    id: newId,
+                    name: "Untitled Prompt",
+                    systemPrompt: "",
+                    userMessage: "",
+                    modelId: "openai/gpt-4o-mini",
+                    apiKey: apiKey.value,
+                    isEditing: false
+                };
+                presets.value.push(newPreset);
+                loadPreset(newPreset);
+            };
+
+            const loadPreset = (preset) => {
+                activePresetId.value = preset.id;
+                systemPrompt.value = preset.systemPrompt || '';
+                userMessage.value = preset.userMessage || '';
+                selectedModelId.value = preset.modelId || 'openai/gpt-4o-mini';
+                modelSearch.value = selectedModelId.value;
+                apiKey.value = preset.apiKey || '';
+                window.location.hash = preset.id;
+            };
+
+            const startRenaming = (preset) => {
+                preset.isEditing = true;
+                nextTick(() => {
+                    if (renameInput.value && renameInput.value[0]) {
+                        renameInput.value[0].focus();
+                        renameInput.value[0].select();
+                    }
+                });
+            };
+
+            const stopRenaming = (preset) => {
+                preset.isEditing = false;
+                saveCurrentPresetToDisk();
+            };
+
+            const deletePreset = async (preset) => {
+                if (!confirm(`Delete "${preset.name}"?`)) return;
+                const idx = presets.value.findIndex(p => p.id === preset.id);
+                if (idx > -1) {
+                    presets.value.splice(idx, 1);
+                    if (directoryHandle.value && !needsPermission.value) {
+                        try {
+                            const fileName = preset.fileName || `${preset.id}.json`;
+                            await directoryHandle.value.removeEntry(fileName);
+                        } catch (e) {}
+                    }
+                    if (activePresetId.value === preset.id) {
+                        activePresetId.value = presets.value[0]?.id || null;
+                        if (activePresetId.value) loadPreset(presets.value[0]);
+                    }
+                }
+            };
+
+            const fetchModels = async () => {
+                try {
+                    const res = await fetch('https://openrouter.ai/api/v1/models');
+                    const data = await res.json();
+                    availableModels.value = data.data;
+                } catch (e) { console.error("Failed to fetch models"); }
+            };
+
+            const filteredModels = computed(() => {
+                if (!modelSearch.value) return availableModels.value.slice(0, 20);
+                const query = modelSearch.value.toLowerCase();
+                return availableModels.value.filter(m =>
+                    m.id.toLowerCase().includes(query) ||
+                    m.name.toLowerCase().includes(query)
+                ).slice(0, 50);
+            });
+
+            const selectModel = (model) => {
+                selectedModelId.value = model.id;
+                modelSearch.value = model.id;
+                showDropdown.value = false;
+                saveCurrentPresetToDisk();
+            };
+
+            const runInference = async () => {
+                if (!apiKey.value) return alert("Please provide an OpenRouter API Key");
+                if (isLoading.value) return;
+
+                isLoading.value = true;
+                response.value = '';
+
+                try {
+                    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey.value}`,
+                            'Content-Type': 'application/json',
+                            'HTTP-Referer': window.location.origin,
+                            'X-Title': 'AI Playground'
+                        },
+                        body: JSON.stringify({
+                            model: selectedModelId.value,
+                            stream: isStreaming.value,
+                            messages: [
+                                { role: 'system', content: systemPrompt.value },
+                                { role: 'user', content: userMessage.value }
+                            ]
+                        })
+                    });
+
+                    if (isStreaming.value) {
+                        const reader = res.body.getReader();
+                        const decoder = new TextDecoder();
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            const chunk = decoder.decode(value);
+                            const lines = chunk.split('\n');
+                            for (const line of lines) {
+                                if (line.startsWith('data: ')) {
+                                    const dataStr = line.slice(6);
+                                    if (dataStr.trim() === '[DONE]') continue;
+                                    try {
+                                        const data = JSON.parse(dataStr);
+                                        response.value += data.choices[0]?.delta?.content || '';
+                                    } catch (e) {}
+                                }
+                            }
+                        }
+                    } else {
+                        const data = await res.json();
+                        if (data.error) throw new Error(data.error.message);
+                        response.value = data.choices[0].message.content;
+                    }
+                } catch (err) {
+                    response.value = "Error: " + err.message;
+                } finally {
+                    isLoading.value = false;
+                }
+            };
+
+            watch([systemPrompt, userMessage, selectedModelId], () => {
+                saveCurrentPresetToDisk();
+            });
+
+            const copyResponse = async () => {
+                try {
+                    await navigator.clipboard.writeText(response.value);
+                    copyStatus.value = 'COPIED!';
+                    setTimeout(() => { copyStatus.value = 'COPY'; }, 2000);
+                } catch (err) { copyStatus.value = 'ERROR'; }
+            };
+
+            const navigateDropdown = async (dir) => {
+                if (!showDropdown.value) { showDropdown.value = true; return; }
+                const len = filteredModels.value.length;
+                if (len === 0) return;
+                selectedIndex.value = (selectedIndex.value + dir + len) % len;
+                await nextTick();
+                if (activeItem.value) {
+                    activeItem.value.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+                }
+            };
+
+            const selectCurrentModel = () => {
+                if (filteredModels.value[selectedIndex.value]) {
+                    selectModel(filteredModels.value[selectedIndex.value]);
+                }
+            };
+
+            onMounted(async () => {
+                fetchModels();
+                const storedHandle = await getStoredHandle();
+                if (storedHandle) {
+                    directoryHandle.value = storedHandle;
+                    await scanDirectory();
+                }
+
+                window.addEventListener('keydown', (e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        e.preventDefault();
+                        runInference();
+                    }
+                    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+                        e.preventDefault();
+                        saveCurrentPresetToDisk();
+                    }
+                    if (e.key === 'Escape') showDropdown.value = false;
+                });
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.relative')) showDropdown.value = false;
+                });
+            });
+
+            return {
+                apiKey, modelSearch, selectedModelId, systemPrompt, userMessage,
+                isStreaming, response, isLoading, filteredModels,
+                showDropdown, selectedIndex, dropdownContainer, activeItem,
+                copyStatus, copyResponse, presets, activePresetId, activePreset,
+                directoryHandle, handleDirectoryAction, createNewPreset, loadPreset,
+                deletePreset, selectModel, navigateDropdown, selectCurrentModel,
+                runInference, saveCurrentPresetToDisk, startRenaming, stopRenaming,
+                renameInput, needsPermission
+            };
+        }
+    }).mount('#app');
+</script>
+
+</body>
+</html>
