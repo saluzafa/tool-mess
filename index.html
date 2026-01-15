@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tools Index</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #f8fafc; color: #1e293b; }
+        .tool-card { transition: all 0.2s; }
+        .tool-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+    </style>
+</head>
+<body class="min-h-screen py-10 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight mb-2">My Tools</h1>
+            <p class="text-lg text-slate-600">Index of available utilities</p>
+        </header>
+
+        <div class="mb-8">
+            <h2 class="text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2 capitalize">Openai</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <a href="tools/openai/openai-price-calculator.html" class="tool-card block p-2 px-4 bg-white rounded-xl border border-slate-200 hover:border-indigo-500 hover:ring-1 hover:ring-indigo-500 shadow-sm group">
+                  OpenAI Price Calculator
+                </a>
+
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <h2 class="text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2 capitalize">Openrouter</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <a href="tools/openrouter/openrouter-playground.html" class="tool-card block p-2 px-4 bg-white rounded-xl border border-slate-200 hover:border-indigo-500 hover:ring-1 hover:ring-indigo-500 shadow-sm group">
+                  AI Playground | OpenRouter
+                </a>
+
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <h2 class="text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2 capitalize">Text</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <a href="tools/text/text-diff-checker.html" class="tool-card block p-2 px-4 bg-white rounded-xl border border-slate-200 hover:border-indigo-500 hover:ring-1 hover:ring-indigo-500 shadow-sm group">
+                  Vue Diff Checker (Debounced)
+                </a>
+
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <h2 class="text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2 capitalize">Time</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <a href="tools/time/unix-timestamp-converter.html" class="tool-card block p-2 px-4 bg-white rounded-xl border border-slate-200 hover:border-indigo-500 hover:ring-1 hover:ring-indigo-500 shadow-sm group">
+                  Unix Timestamp Converter
+                </a>
+
+            </div>
+        </div>
+
+        <footer class="mt-16 text-center text-sm text-slate-400">
+            <p>Generated automatically</p>
+        </footer>
+    </div>
+</body>
+</html>
