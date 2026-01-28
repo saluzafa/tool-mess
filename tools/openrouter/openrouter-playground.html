@@ -73,6 +73,16 @@
             </div>
 
             <button
+                @click="showSettingsModal = true"
+                class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg font-bold transition-all shadow-lg active:scale-95 whitespace-nowrap flex items-center gap-2 text-sm"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" />
+                </svg>
+                <span>Settings</span>
+            </button>
+
+            <button
                 @click="runInference"
                 :disabled="isLoading"
                 class="bg-sky-600 hover:bg-sky-500 disabled:bg-slate-700 px-6 py-2 rounded-lg font-bold transition-all shadow-lg active:scale-95 whitespace-nowrap"
@@ -151,6 +161,7 @@
                     </div>
                     <textarea
                         v-model="systemPrompt"
+                        @input="saveCurrentPresetToDisk()"
                         class="flex-1 bg-slate-950 border border-slate-700 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-sky-500/50 resize-none font-mono text-sm leading-relaxed"
                         placeholder="You are a helpful assistant..."
                     ></textarea>
@@ -186,6 +197,63 @@
         </section>
 
     </main>
+
+    <!-- Settings Modal -->
+    <div v-if="showSettingsModal" @click.self="showSettingsModal = false" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
+            <div class="flex justify-between items-center p-5 border-b border-slate-700">
+                <h3 class="text-lg font-bold text-sky-300">Model Settings</h3>
+                <button @click="showSettingsModal = false" class="p-1 rounded-full hover:bg-slate-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-6">
+                <!-- Temperature -->
+                <div class="grid grid-cols-4 items-center gap-4">
+                    <label class="text-sm font-medium text-slate-300 col-span-1">Temperature</label>
+                    <div class="col-span-3">
+                        <input type="range" min="0" max="2" step="0.01" v-model.number="temperature" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                        <div class="text-right text-xs text-slate-400 mt-1 font-mono">{{ temperature.toFixed(2) }}</div>
+                    </div>
+                </div>
+
+                <!-- Reasoning -->
+                <div class="grid grid-cols-4 items-center gap-4">
+                    <label class="text-sm font-medium text-slate-300 col-span-1">Reasoning</label>
+                    <div class="col-span-3 flex items-center gap-2">
+                        <button
+                            @click="reasoningEnabled = !reasoningEnabled"
+                            :class="reasoningEnabled ? 'bg-sky-500' : 'bg-slate-600'"
+                            class="relative inline-flex h-5 w-10 items-center rounded-full transition-colors"
+                        >
+                            <span :class="reasoningEnabled ? 'translate-x-5' : 'translate-x-1'" class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform"></span>
+                        </button>
+                        <span class="text-xs text-slate-400">{{ reasoningEnabled ? 'Enabled' : 'Disabled' }}</span>
+                    </div>
+                </div>
+
+                <!-- Reasoning Effort -->
+                <div v-if="reasoningEnabled" class="grid grid-cols-4 items-center gap-4">
+                     <label class="text-sm font-medium text-slate-300 col-span-1">Effort</label>
+                    <div class="col-span-3">
+                         <select v-model="reasoningEffort" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm">
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                         </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800/50 px-6 py-4 border-t border-slate-700 flex justify-end">
+                <button @click="showSettingsModal = false" class="bg-sky-600 hover:bg-sky-500 px-5 py-2 rounded-lg font-bold text-sm transition-all shadow-lg active:scale-95">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
@@ -228,6 +296,11 @@
             const response = ref('');
             const isLoading = ref(false);
             const copyStatus = ref('COPY');
+
+            const showSettingsModal = ref(false);
+            const temperature = ref(1);
+            const reasoningEnabled = ref(false);
+            const reasoningEffort = ref('medium');
 
             const presets = ref([]);
             const activePresetId = ref(null);
@@ -329,7 +402,10 @@
                     systemPrompt: systemPrompt.value,
                     userMessage: userMessage.value,
                     modelId: selectedModelId.value,
-                    apiKey: apiKey.value
+                    apiKey: apiKey.value,
+                    temperature: temperature.value,
+                    reasoningEnabled: reasoningEnabled.value,
+                    reasoningEffort: reasoningEffort.value
                 };
 
                 try {
@@ -365,6 +441,9 @@
                     userMessage: "",
                     modelId: "openai/gpt-4o-mini",
                     apiKey: apiKey.value,
+                    temperature: 1,
+                    reasoningEnabled: false,
+                    reasoningEffort: 'medium',
                     isEditing: false
                 };
                 presets.value.push(newPreset);
@@ -378,6 +457,9 @@
                 selectedModelId.value = preset.modelId || 'openai/gpt-4o-mini';
                 modelSearch.value = selectedModelId.value;
                 apiKey.value = preset.apiKey || '';
+                temperature.value = preset.temperature ?? 1;
+                reasoningEnabled.value = preset.reasoningEnabled ?? false;
+                reasoningEffort.value = preset.reasoningEffort ?? 'medium';
                 window.location.hash = preset.id;
             };
 
@@ -446,6 +528,40 @@
                 response.value = '';
 
                 try {
+                    const body = {
+                        model: selectedModelId.value,
+                        stream: isStreaming.value,
+                        temperature: temperature.value,
+                        messages: [
+                            { role: 'system', content: systemPrompt.value },
+                            { role: 'user', content: userMessage.value }
+                        ]
+                    };
+
+                    if (reasoningEnabled.value) {
+                        body.tool_choice = "auto";
+                        body.tools = [{
+                            type: "function",
+                            function: {
+                                name: "google_search",
+                                description: "Get information from the web.",
+                                parameters: {
+                                    type: "object",
+                                    properties: {
+                                        query: {
+                                            type: "string",
+                                            description: "The search query."
+                                        }
+                                    },
+                                    required: ["query"]
+                                }
+                            }
+                        }];
+                        // OpenRouter uses transforms for this. Let's add it.
+                        body.transforms = ["google_search"];
+                    }
+
+
                     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                         method: 'POST',
                         headers: {
@@ -454,14 +570,7 @@
                             'HTTP-Referer': window.location.origin,
                             'X-Title': 'AI Playground'
                         },
-                        body: JSON.stringify({
-                            model: selectedModelId.value,
-                            stream: isStreaming.value,
-                            messages: [
-                                { role: 'system', content: systemPrompt.value },
-                                { role: 'user', content: userMessage.value }
-                            ]
-                        })
+                        body: JSON.stringify(body)
                     });
 
                     if (isStreaming.value) {
@@ -495,7 +604,7 @@
                 }
             };
 
-            watch([systemPrompt, userMessage, selectedModelId], () => {
+            watch([systemPrompt, userMessage, selectedModelId, temperature, reasoningEnabled, reasoningEffort], () => {
                 saveCurrentPresetToDisk();
             });
 
@@ -556,7 +665,8 @@
                 directoryHandle, handleDirectoryAction, createNewPreset, loadPreset,
                 deletePreset, selectModel, navigateDropdown, selectCurrentModel,
                 runInference, saveCurrentPresetToDisk, startRenaming, stopRenaming,
-                renameInput, needsPermission
+                renameInput, needsPermission,
+                showSettingsModal, temperature, reasoningEnabled, reasoningEffort
             };
         }
     }).mount('#app');
